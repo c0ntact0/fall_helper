@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/routes.dart';
+import '../../../../core/services/storage_service.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/pin_keyboard.dart';
 
 class PinLoginPage extends StatefulWidget {
@@ -10,13 +13,34 @@ class PinLoginPage extends StatefulWidget {
 }
 
 class _PinLoginPageState extends State<PinLoginPage> {
-  static const String _defaultPin = '0000';
   static const int _pinLength = 4;
+
+  final StorageService _storageService = StorageService();
 
   String _enteredPin = '';
   String? _errorMessage;
+  String _savedPin = '0000';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPin();
+  }
+
+  Future<void> _loadSavedPin() async {
+    final caregiver = await _storageService.loadCaregiver();
+
+    if (!mounted) return;
+
+    setState(() {
+      _savedPin = caregiver.pin;
+      _isLoading = false;
+    });
+  }
 
   void _onDigitPressed(String digit) {
+    if (_isLoading) return;
     if (_enteredPin.length >= _pinLength) return;
 
     setState(() {
@@ -30,6 +54,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
   }
 
   void _onBackspacePressed() {
+    if (_isLoading) return;
     if (_enteredPin.isEmpty) return;
 
     setState(() {
@@ -39,7 +64,16 @@ class _PinLoginPageState extends State<PinLoginPage> {
   }
 
   void _validatePin() {
-    if (_enteredPin == _defaultPin) {
+    final validationError = AppValidators.pin4Digits(_enteredPin);
+    if (validationError != null) {
+      setState(() {
+        _enteredPin = '';
+        _errorMessage = validationError;
+      });
+      return;
+    }
+
+    if (_enteredPin == _savedPin) {
       Navigator.pushReplacementNamed(context, AppRoutes.settings);
       return;
     }
@@ -52,6 +86,12 @@ class _PinLoginPageState extends State<PinLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('PIN de configuração'),
@@ -78,11 +118,13 @@ class _PinLoginPageState extends State<PinLoginPage> {
                 enteredPinLength: _enteredPin.length,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'O PIN predefinido é 0000',
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 8),
+              if (_savedPin == '0000') ...[
+                const Text(
+                  'O PIN predefinido é 0000',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+              ],
               if (_errorMessage != null)
                 Text(
                   _errorMessage!,
@@ -127,7 +169,7 @@ class _PinDisplay extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pinLength, (index) {
-        final isFilled = index < enteredPinLength;
+        final bool isFilled = index < enteredPinLength;
 
         return Container(
           width: 20,

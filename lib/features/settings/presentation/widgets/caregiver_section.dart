@@ -67,6 +67,7 @@ class CaregiverSection extends StatelessWidget {
             ),
             keyboardType: TextInputType.number,
             obscureText: true,
+            maxLength: 4,
             validator: validatePin,
           ),
         ],
