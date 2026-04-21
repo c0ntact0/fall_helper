@@ -3,7 +3,7 @@ class AlertSettings {
   final bool sendSms;
   final bool sendGps;
   final bool recordAndSendVideo;
-  final int circularRecordingMinutes;
+  final double circularRecordingMinutes;
 
   const AlertSettings({
     required this.makePhoneCall,
@@ -18,7 +18,7 @@ class AlertSettings {
     bool? sendSms,
     bool? sendGps,
     bool? recordAndSendVideo,
-    int? circularRecordingMinutes,
+    double? circularRecordingMinutes,
   }) {
     return AlertSettings(
       makePhoneCall: makePhoneCall ?? this.makePhoneCall,
