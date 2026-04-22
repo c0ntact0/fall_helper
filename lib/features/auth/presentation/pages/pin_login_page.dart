@@ -74,7 +74,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
     }
 
     if (_enteredPin == _savedPin) {
-      Navigator.pushReplacementNamed(context, AppRoutes.settings);
+      _openSettings();
       return;
     }
 
@@ -82,6 +82,14 @@ class _PinLoginPageState extends State<PinLoginPage> {
       _enteredPin = '';
       _errorMessage = 'PIN incorreto';
     });
+  }
+
+  Future<void> _openSettings() async {
+    final result = await Navigator.pushNamed(context, AppRoutes.settings);
+
+    if (!mounted) return;
+
+    Navigator.pop(context, result ?? true);
   }
 
   @override

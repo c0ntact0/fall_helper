@@ -62,8 +62,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openSettings() async {
-    await Navigator.pushNamed(context, AppRoutes.pinLogin);
-    await _loadHomeSettings();
+    final result = await Navigator.pushNamed(context, AppRoutes.pinLogin);
+
+    if (result == true) {
+      await _loadHomeSettings();
+    }
   }
 
   void _toggleFallDetection() {
