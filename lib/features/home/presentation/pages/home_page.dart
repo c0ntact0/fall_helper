@@ -9,6 +9,7 @@ import '../../../settings/domain/models/user_feature_settings.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
 import '../widgets/panic_card.dart';
+import '../../../../core/services/phone_call_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,6 +20,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final StorageService _storageService = StorageService();
+  final PhoneCallService _phoneCallService = PhoneCallService();
 
   bool _isLoading = true;
 
@@ -31,6 +33,7 @@ class _HomePageState extends State<HomePage> {
   bool _showFallDetectionButton = true;
   bool _showPanicButton = true;
   String _caregiverName = 'Cuidador';
+  String _caregiverPhoneNumber = '';
 
   Timer? _panicTimer;
 
@@ -55,6 +58,7 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _caregiverName = caregiver.name;
+      _caregiverPhoneNumber = caregiver.phoneNumber;
       _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
       _showPanicButton = userFeatureSettings.showPanicButton;
       _isLoading = false;
@@ -121,17 +125,28 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _performPanicCall() {
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
+  Future<void> _performPanicCall() async {
+  try {
+    await _phoneCallService.callPhoneNumber(_caregiverPhoneNumber);
+  } catch (error) {
+    if (!mounted) return;
 
-      setState(() {
-        _isPanicInProgress = false;
-        _panicProgress = 0.0;
-      });
+    debugPrint("Phone call failed: $error.toString()");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error.toString()),
+      ),
+    );
+  } finally {
+    if (!mounted) return;
+
+    setState(() {
+      _isPanicInProgress = false;
+      _panicProgress = 0.0;
     });
   }
-
+  }
+  
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
