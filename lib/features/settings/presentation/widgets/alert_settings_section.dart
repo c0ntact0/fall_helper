@@ -62,19 +62,27 @@ class AlertSettingsSection extends StatelessWidget {
           Row(
             children: [
               const Expanded(child: Text('Tempo gravação circular')),
-              Text('${circularRecordingMinutes.round()} min'),
+              Text(formatMinutes(circularRecordingMinutes))
             ],
           ),
           Slider(
             value: circularRecordingMinutes,
-            min: 1,
-            max: 30,
-            divisions: 29,
-            label: '${circularRecordingMinutes.round()} min',
+            min: 0.5,
+            max: 5.0,
+            divisions: 9,
+            label: formatMinutes(circularRecordingMinutes),
             onChanged: onCircularRecordingMinutesChanged,
           ),
         ],
       ),
     );
   }
+
+  String formatMinutes(double value) {
+    if (value == value.roundToDouble()) {
+      return '${value.toInt()} min';
+    }
+    return '${value.toStringAsFixed(1)} min';
+  }
 }
+

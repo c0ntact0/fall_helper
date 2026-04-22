@@ -1,0 +1,174 @@
+import 'package:flutter/material.dart';
+
+import '../../../../core/services/storage_service.dart';
+import '../../domain/models/alert_settings.dart';
+import '../../domain/models/caregiver.dart';
+import '../../domain/models/user_feature_settings.dart';
+
+class SettingsController extends ChangeNotifier {
+  SettingsController({required StorageService storageService})
+    : _storageService = storageService;
+
+  final StorageService _storageService;
+
+  final formKey = GlobalKey<FormState>();
+
+  late final TextEditingController caregiverNameController;
+  late final TextEditingController caregiverEmailController;
+  late final TextEditingController caregiverPhoneController;
+  late final TextEditingController pinController;
+
+  bool _isLoading = true;
+  bool get isLoading => _isLoading;
+
+  bool _isSaving = false;
+  bool get isSaving => _isSaving;
+
+  bool _makePhoneCall = true;
+  bool get makePhoneCall => _makePhoneCall;
+
+  bool _sendSms = false;
+  bool get sendSms => _sendSms;
+
+  bool _sendGps = false;
+  bool get sendGps => _sendGps;
+
+  bool _recordAndSendVideo = false;
+  bool get recordAndSendVideo => _recordAndSendVideo;
+
+  double _circularRecordingMinutes = 5;
+  double get circularRecordingMinutes => _circularRecordingMinutes;
+
+  bool _showFallDetectionButton = true;
+  bool get showFallDetectionButton => _showFallDetectionButton;
+
+  bool _showPanicButton = true;
+  bool get showPanicButton => _showPanicButton;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  Future<void> initialize() async {
+    caregiverNameController = TextEditingController();
+    caregiverEmailController = TextEditingController();
+    caregiverPhoneController = TextEditingController();
+    pinController = TextEditingController();
+
+    await loadSettings();
+  }
+
+  Future<void> loadSettings() async {
+    final caregiver = await _storageService.loadCaregiver();
+    final alertSettings = await _storageService.loadAlertSettings();
+    final userFeatureSettings = await _storageService.loadUserFeatureSettings();
+
+    caregiverNameController.text = caregiver.name;
+    caregiverEmailController.text = caregiver.email;
+    caregiverPhoneController.text = caregiver.phoneNumber;
+    pinController.text = caregiver.pin;
+
+    _makePhoneCall = alertSettings.makePhoneCall;
+    _sendSms = alertSettings.sendSms;
+    _sendGps = alertSettings.sendGps;
+    _recordAndSendVideo = alertSettings.recordAndSendVideo;
+    _circularRecordingMinutes = alertSettings.circularRecordingMinutes;
+
+    _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
+    _showPanicButton = userFeatureSettings.showPanicButton;
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _errorMessage = null;
+  }
+
+  void setMakePhoneCall(bool value) {
+    _makePhoneCall = value;
+    notifyListeners();
+  }
+
+  void setSendSms(bool value) {
+    _sendSms = value;
+    notifyListeners();
+  }
+
+  void setSendGps(bool value) {
+    _sendGps = value;
+    notifyListeners();
+  }
+
+  void setRecordAndSendVideo(bool value) {
+    _recordAndSendVideo = value;
+    notifyListeners();
+  }
+
+  void setCircularRecordingMinutes(double value) {
+    _circularRecordingMinutes = value;
+    notifyListeners();
+  }
+
+  void setShowFallDetectionButton(bool value) {
+    _showFallDetectionButton = value;
+    notifyListeners();
+  }
+
+  void setShowPanicButton(bool value) {
+    _showPanicButton = value;
+    notifyListeners();
+  }
+
+  Future<bool> saveSettings() async {
+    if (_isSaving) return false;
+
+    final isValid = formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      _errorMessage = 'Corrige os campos antes de sair.';
+      notifyListeners();
+      return false;
+    }
+
+    _isSaving = true;
+    notifyListeners();
+
+    final caregiver = Caregiver(
+      name: caregiverNameController.text.trim(),
+      email: caregiverEmailController.text.trim(),
+      phoneNumber: caregiverPhoneController.text.trim(),
+      pin: pinController.text.trim(),
+    );
+
+    final alertSettings = AlertSettings(
+      makePhoneCall: _makePhoneCall,
+      sendSms: _sendSms,
+      sendGps: _sendGps,
+      recordAndSendVideo: _recordAndSendVideo,
+      circularRecordingMinutes: _circularRecordingMinutes,
+    );
+
+    final userFeatureSettings = UserFeatureSettings(
+      showFallDetectionButton: _showFallDetectionButton,
+      showPanicButton: _showPanicButton,
+    );
+
+    try {
+      await _storageService.saveCaregiver(caregiver);
+      await _storageService.saveAlertSettings(alertSettings);
+      await _storageService.saveUserFeatureSettings(userFeatureSettings);
+      return true;
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    caregiverNameController.dispose();
+    caregiverEmailController.dispose();
+    caregiverPhoneController.dispose();
+    pinController.dispose();
+    super.dispose();
+  }
+}
