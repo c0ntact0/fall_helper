@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../settings/domain/models/caregiver.dart';
 import '../../../settings/domain/models/user_feature_settings.dart';
 
@@ -11,20 +12,19 @@ class HomeController extends ChangeNotifier {
   HomeController({
     required StorageService storageService,
     required PhoneCallService phoneCallService,
+    required this.flashlightController,
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
+  final FlashlightController flashlightController;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
   bool _isFallDetectionActive = true;
   bool get isFallDetectionActive => _isFallDetectionActive;
-
-  bool _isFlashlightActive = false;
-  bool get isFlashlightActive => _isFlashlightActive;
 
   bool _isPanicInProgress = false;
   bool get isPanicInProgress => _isPanicInProgress;
@@ -58,8 +58,10 @@ class HomeController extends ChangeNotifier {
     _caregiverPhoneNumber = caregiver.phoneNumber;
     _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
     _showPanicButton = userFeatureSettings.showPanicButton;
-    _isLoading = false;
 
+    await flashlightController.initialize();
+
+    _isLoading = false;
     notifyListeners();
   }
 
@@ -69,11 +71,6 @@ class HomeController extends ChangeNotifier {
 
   void toggleFallDetection() {
     _isFallDetectionActive = !_isFallDetectionActive;
-    notifyListeners();
-  }
-
-  void toggleFlashlight() {
-    _isFlashlightActive = !_isFlashlightActive;
     notifyListeners();
   }
 

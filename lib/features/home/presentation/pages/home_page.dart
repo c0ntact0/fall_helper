@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/services/flashlight_service.dart';
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
@@ -16,25 +18,35 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late final FlashlightController _flashlightController;
   late final HomeController _controller;
 
   @override
   void initState() {
     super.initState();
 
+    _flashlightController = FlashlightController(
+      flashlightService: FlashlightService(),
+    );
+
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
+      flashlightController: _flashlightController,
     );
 
     _controller.addListener(_onControllerChanged);
+    _flashlightController.addListener(_onFlashlightChanged);
+
     _controller.loadHomeSettings();
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    _flashlightController.removeListener(_onFlashlightChanged);
     _controller.dispose();
+    _flashlightController.dispose();
     super.dispose();
   }
 
@@ -49,6 +61,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _onFlashlightChanged() {
+    final errorMessage = _flashlightController.errorMessage;
+
+    if (errorMessage != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      _flashlightController.clearError();
+    }
+  }
+
   Future<void> _openSettings() async {
     final result = await Navigator.pushNamed(context, AppRoutes.pinLogin);
 
@@ -60,7 +83,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_controller, _flashlightController]),
       builder: (context, _) {
         if (_controller.isLoading) {
           return const Scaffold(
@@ -94,8 +117,9 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 24),
                 ],
                 FlashlightCard(
-                  isActive: _controller.isFlashlightActive,
-                  onTap: _controller.toggleFlashlight,
+                  isActive: _flashlightController.isOn,
+                  isAvailable: _flashlightController.isAvailable,
+                  onTap: _flashlightController.toggleManual,
                 ),
                 if (_controller.showPanicButton) ...[
                   const SizedBox(height: 24),

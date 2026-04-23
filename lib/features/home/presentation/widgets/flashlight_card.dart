@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+
 import '../../../../shared/widgets/action_card.dart';
 
 class FlashlightCard extends StatelessWidget {
   final bool isActive;
+  final bool isAvailable;
   final VoidCallback onTap;
 
   const FlashlightCard({
     super.key,
     required this.isActive,
+    required this.isAvailable,
     required this.onTap,
   });
 
@@ -15,12 +18,14 @@ class FlashlightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return ActionCard(
       title: 'Lanterna',
-      status: isActive ? 'Ativa' : 'Desativa',
-      instruction: isActive
-          ? 'Pressione para desativar'
-          : 'Pressione para ativar',
-      backgroundColor: isActive ? Colors.green : Colors.red,
-      onTap: onTap,
+      status: !isAvailable ? 'Indisponível' : (isActive ? 'Ativa' : 'Desativa'),
+      instruction: !isAvailable
+          ? 'Sem suporte no dispositivo'
+          : (isActive ? 'Pressione para desativar' : 'Pressione para ativar'),
+      backgroundColor: !isAvailable
+          ? Colors.grey
+          : (isActive ? Colors.amber : Colors.red),
+      onTap: isAvailable ? onTap : () {},
     );
   }
 }
