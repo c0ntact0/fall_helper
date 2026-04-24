@@ -18,6 +18,12 @@ class SettingsController extends ChangeNotifier {
   late final TextEditingController caregiverPhoneController;
   late final TextEditingController pinController;
 
+  double _flashlightDarknessThresholdLux = 20.0;
+  double get flashlightDarknessThresholdLux => _flashlightDarknessThresholdLux;
+
+  int? _currentLux;
+  int? get currentLux => _currentLux;
+
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
@@ -44,6 +50,9 @@ class SettingsController extends ChangeNotifier {
 
   bool _showPanicButton = true;
   bool get showPanicButton => _showPanicButton;
+
+  bool _enableAutomaticFlashlightMode = false;
+  bool get enableAutomaticFlashlightMode => _enableAutomaticFlashlightMode;
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
@@ -75,6 +84,10 @@ class SettingsController extends ChangeNotifier {
 
     _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
     _showPanicButton = userFeatureSettings.showPanicButton;
+    _enableAutomaticFlashlightMode =
+        userFeatureSettings.enableAutomaticFlashlightMode;
+    _flashlightDarknessThresholdLux =
+        userFeatureSettings.flashlightDarknessThresholdLux;
 
     _isLoading = false;
     notifyListeners();
@@ -119,6 +132,21 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setEnableAutomaticFlashlightMode(bool value) {
+    _enableAutomaticFlashlightMode = value;
+    notifyListeners();
+  }
+
+  void setFlashlightDarknessThresholdLux(double value) {
+    _flashlightDarknessThresholdLux = value;
+    notifyListeners();
+  }
+
+  void setCurrentLux(int? value) {
+    _currentLux = value;
+    notifyListeners();
+  }
+
   Future<bool> saveSettings() async {
     if (_isSaving) return false;
 
@@ -150,6 +178,8 @@ class SettingsController extends ChangeNotifier {
     final userFeatureSettings = UserFeatureSettings(
       showFallDetectionButton: _showFallDetectionButton,
       showPanicButton: _showPanicButton,
+      enableAutomaticFlashlightMode: _enableAutomaticFlashlightMode,
+      flashlightDarknessThresholdLux: _flashlightDarknessThresholdLux,
     );
 
     try {

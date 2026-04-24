@@ -1,8 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/flashlight_service.dart';
-
-enum FlashlightMode { manual, automatic }
 
 class FlashlightController extends ChangeNotifier {
   FlashlightController({required FlashlightService flashlightService})
@@ -19,8 +19,23 @@ class FlashlightController extends ChangeNotifier {
   bool _isBusy = false;
   bool get isBusy => _isBusy;
 
-  FlashlightMode _mode = FlashlightMode.manual;
-  FlashlightMode get mode => _mode;
+  bool _autoModeEnabled = false;
+  bool get autoModeEnabled => _autoModeEnabled;
+
+  bool _manualOverrideActive = false;
+  bool get manualOverrideActive => _manualOverrideActive;
+
+  bool _hasSensorReading = false;
+  bool get hasSensorReading => _hasSensorReading;
+
+  bool _shouldBeOnBySensor = false;
+  bool get shouldBeOnBySensor => _shouldBeOnBySensor;
+
+  int? _currentLux;
+  int? get currentLux => _currentLux;
+
+  double _darknessThresholdLux = 20.0;
+  double get darknessThresholdLux => _darknessThresholdLux;
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
@@ -34,9 +49,26 @@ class FlashlightController extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  void setMode(FlashlightMode mode) {
-    _mode = mode;
+  Future<void> setDarknessThresholdLux(double value) async {
+    _darknessThresholdLux = value;
     notifyListeners();
+
+    if (_currentLux != null) {
+      await updateLux(_currentLux!);
+    }
+  }
+
+  Future<void> setAutoModeEnabled(bool value) async {
+    _autoModeEnabled = value;
+
+    if (!_autoModeEnabled) {
+      _manualOverrideActive = false;
+      notifyListeners();
+      return;
+    }
+
+    notifyListeners();
+    await _applyAutomaticStateIfNeeded();
   }
 
   Future<void> toggleManual() async {
@@ -53,12 +85,20 @@ class FlashlightController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (_isOn) {
-        await _flashlightService.disable();
-        _isOn = false;
-      } else {
+      final nextState = !_isOn;
+
+      if (nextState) {
         await _flashlightService.enable();
-        _isOn = true;
+      } else {
+        await _flashlightService.disable();
+      }
+
+      _isOn = nextState;
+
+      if (_autoModeEnabled && _hasSensorReading) {
+        _manualOverrideActive = _isOn != _shouldBeOnBySensor;
+      } else {
+        _manualOverrideActive = false;
       }
     } catch (_) {
       _errorMessage = 'Não foi possível controlar a lanterna.';
@@ -68,17 +108,43 @@ class FlashlightController extends ChangeNotifier {
     }
   }
 
-  Future<void> setAutomaticState(bool shouldTurnOn) async {
-    if (_isBusy) return;
+  Future<void> updateLux(int lux) async {
+    _currentLux = lux;
+    final shouldTurnOn = lux <= _darknessThresholdLux;
+
+    _hasSensorReading = true;
+    _shouldBeOnBySensor = shouldTurnOn;
+
+    if (!_autoModeEnabled) {
+      notifyListeners();
+      return;
+    }
+
+    if (_manualOverrideActive) {
+      if (_isOn == _shouldBeOnBySensor) {
+        _manualOverrideActive = false;
+        notifyListeners();
+      }
+      return;
+    }
+
+    notifyListeners();
+    await _applyAutomaticStateIfNeeded();
+  }
+
+  Future<void> _applyAutomaticStateIfNeeded() async {
+    if (!_autoModeEnabled) return;
+    if (_manualOverrideActive) return;
+    if (!_hasSensorReading) return;
     if (!_isAvailable) return;
-    if (_mode != FlashlightMode.automatic) return;
-    if (_isOn == shouldTurnOn) return;
+    if (_isBusy) return;
+    if (_isOn == _shouldBeOnBySensor) return;
 
     _isBusy = true;
     notifyListeners();
 
     try {
-      if (shouldTurnOn) {
+      if (_shouldBeOnBySensor) {
         await _flashlightService.enable();
         _isOn = true;
       } else {

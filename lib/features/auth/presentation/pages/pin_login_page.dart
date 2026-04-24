@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/routes.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../shared/widgets/pin_keyboard.dart';
+import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../controllers/pin_login_controller.dart';
 
 class PinLoginPage extends StatefulWidget {
-  const PinLoginPage({super.key});
+  final LightSensorController? lightSensorController;
+
+  const PinLoginPage({super.key, this.lightSensorController});
 
   @override
   State<PinLoginPage> createState() => _PinLoginPageState();
@@ -50,7 +53,14 @@ class _PinLoginPageState extends State<PinLoginPage> {
       final isValid = _controller.validatePin();
 
       if (isValid) {
-        final result = await Navigator.pushNamed(context, AppRoutes.settings);
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SettingsPage(
+              lightSensorController: widget.lightSensorController,
+            ),
+          ),
+        );
 
         if (!mounted) return;
 

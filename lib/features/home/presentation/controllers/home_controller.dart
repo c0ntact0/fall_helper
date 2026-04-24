@@ -60,6 +60,12 @@ class HomeController extends ChangeNotifier {
     _showPanicButton = userFeatureSettings.showPanicButton;
 
     await flashlightController.initialize();
+    await flashlightController.setDarknessThresholdLux(
+      userFeatureSettings.flashlightDarknessThresholdLux,
+    );
+    await flashlightController.setAutoModeEnabled(
+      userFeatureSettings.enableAutomaticFlashlightMode,
+    );
 
     _isLoading = false;
     notifyListeners();

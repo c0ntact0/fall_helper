@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/routes.dart';
 import '../../../../core/services/flashlight_service.dart';
+import '../../../../core/services/light_sensor_service.dart';
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
+import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
+import '../../../settings/presentation/pages/settings_host_page.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
@@ -19,6 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late final FlashlightController _flashlightController;
+  late final LightSensorController _lightSensorController;
   late final HomeController _controller;
 
   @override
@@ -29,6 +32,10 @@ class _HomePageState extends State<HomePage> {
       flashlightService: FlashlightService(),
     );
 
+    _lightSensorController = LightSensorController(
+      lightSensorService: LightSensorService(),
+    );
+
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
@@ -37,16 +44,31 @@ class _HomePageState extends State<HomePage> {
 
     _controller.addListener(_onControllerChanged);
     _flashlightController.addListener(_onFlashlightChanged);
+    _lightSensorController.addListener(_onLightSensorChanged);
 
-    _controller.loadHomeSettings();
+    _initializePage();
+  }
+
+  Future<void> _initializePage() async {
+    await _controller.loadHomeSettings();
+
+    await _lightSensorController.startListening(
+      onLuxChanged: (lux) {
+        _flashlightController.updateLux(lux);
+      },
+    );
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _flashlightController.removeListener(_onFlashlightChanged);
+    _lightSensorController.removeListener(_onLightSensorChanged);
+
     _controller.dispose();
     _flashlightController.dispose();
+    _lightSensorController.dispose();
+
     super.dispose();
   }
 
@@ -72,18 +94,44 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _onLightSensorChanged() {
+    final errorMessage = _lightSensorController.errorMessage;
+
+    if (errorMessage != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      _lightSensorController.clearError();
+    }
+  }
+
   Future<void> _openSettings() async {
-    final result = await Navigator.pushNamed(context, AppRoutes.pinLogin);
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            SettingsHostPage(lightSensorController: _lightSensorController),
+      ),
+    );
 
     if (result == true) {
       await _controller.loadHomeSettings();
+
+      final lux = _lightSensorController.currentLux;
+      if (lux != null) {
+        await _flashlightController.updateLux(lux);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_controller, _flashlightController]),
+      animation: Listenable.merge([
+        _controller,
+        _flashlightController,
+        _lightSensorController,
+      ]),
       builder: (context, _) {
         if (_controller.isLoading) {
           return const Scaffold(
@@ -119,6 +167,9 @@ class _HomePageState extends State<HomePage> {
                 FlashlightCard(
                   isActive: _flashlightController.isOn,
                   isAvailable: _flashlightController.isAvailable,
+                  autoModeEnabled: _flashlightController.autoModeEnabled,
+                  manualOverrideActive:
+                      _flashlightController.manualOverrideActive,
                   onTap: _flashlightController.toggleManual,
                 ),
                 if (_controller.showPanicButton) ...[

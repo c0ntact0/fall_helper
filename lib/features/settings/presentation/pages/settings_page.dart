@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
 import '../controllers/settings_controller.dart';
 import '../widgets/alert_settings_section.dart';
 import '../widgets/caregiver_section.dart';
 import '../widgets/user_features_section.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final LightSensorController? lightSensorController;
+
+  const SettingsPage({super.key, this.lightSensorController});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -58,7 +61,10 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([
+        _controller,
+        if (widget.lightSensorController != null) widget.lightSensorController!,
+      ]),
       builder: (context, _) {
         if (_controller.isLoading) {
           return const Scaffold(
@@ -119,9 +125,18 @@ class _SettingsPageState extends State<SettingsPage> {
                       showFallDetectionButton:
                           _controller.showFallDetectionButton,
                       showPanicButton: _controller.showPanicButton,
+                      enableAutomaticFlashlightMode:
+                          _controller.enableAutomaticFlashlightMode,
+                      flashlightDarknessThresholdLux:
+                          _controller.flashlightDarknessThresholdLux,
+                      currentLux: widget.lightSensorController?.currentLux,
                       onShowFallDetectionButtonChanged:
                           _controller.setShowFallDetectionButton,
                       onShowPanicButtonChanged: _controller.setShowPanicButton,
+                      onEnableAutomaticFlashlightModeChanged:
+                          _controller.setEnableAutomaticFlashlightMode,
+                      onFlashlightDarknessThresholdLuxChanged:
+                          _controller.setFlashlightDarknessThresholdLux,
                     ),
                     if (_controller.isSaving) ...[
                       const SizedBox(height: 16),
