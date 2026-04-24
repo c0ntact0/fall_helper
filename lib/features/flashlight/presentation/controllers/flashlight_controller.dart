@@ -28,17 +28,40 @@ class FlashlightController extends ChangeNotifier {
   bool _hasSensorReading = false;
   bool get hasSensorReading => _hasSensorReading;
 
-  bool _shouldBeOnBySensor = false;
-  bool get shouldBeOnBySensor => _shouldBeOnBySensor;
-
   int? _currentLux;
   int? get currentLux => _currentLux;
 
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  // Threshold central configurável nas settings.
   double _darknessThresholdLux = 20.0;
   double get darknessThresholdLux => _darknessThresholdLux;
 
-  String? _errorMessage;
-  String? get errorMessage => _errorMessage;
+  // Histerese:
+  // liga abaixo de (threshold - margin)
+  // desliga acima de (threshold + margin)
+  double _hysteresisMarginLux = 5.0;
+  double get hysteresisMarginLux => _hysteresisMarginLux;
+
+  double get turnOnThresholdLux =>
+      (_darknessThresholdLux - _hysteresisMarginLux).clamp(
+        0.0,
+        double.infinity,
+      );
+
+  double get turnOffThresholdLux =>
+      _darknessThresholdLux + _hysteresisMarginLux;
+
+  // Atrasos temporais
+  Duration _turnOnDelay = const Duration(seconds: 2);
+  Duration get turnOnDelay => _turnOnDelay;
+
+  Duration _turnOffDelay = const Duration(seconds: 3);
+  Duration get turnOffDelay => _turnOffDelay;
+
+  Timer? _pendingTurnOnTimer;
+  Timer? _pendingTurnOffTimer;
 
   Future<void> initialize() async {
     _isAvailable = await _flashlightService.isTorchAvailable();
@@ -58,17 +81,36 @@ class FlashlightController extends ChangeNotifier {
     }
   }
 
+  void setHysteresisMarginLux(double value) {
+    _hysteresisMarginLux = value;
+    notifyListeners();
+  }
+
+  void setTurnOnDelay(Duration value) {
+    _turnOnDelay = value;
+    notifyListeners();
+  }
+
+  void setTurnOffDelay(Duration value) {
+    _turnOffDelay = value;
+    notifyListeners();
+  }
+
   Future<void> setAutoModeEnabled(bool value) async {
     _autoModeEnabled = value;
 
     if (!_autoModeEnabled) {
       _manualOverrideActive = false;
+      _cancelPendingTimers();
       notifyListeners();
       return;
     }
 
     notifyListeners();
-    await _applyAutomaticStateIfNeeded();
+
+    if (_currentLux != null) {
+      await updateLux(_currentLux!);
+    }
   }
 
   Future<void> toggleManual() async {
@@ -79,6 +121,8 @@ class FlashlightController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
+    _cancelPendingTimers();
 
     _isBusy = true;
     _errorMessage = null;
@@ -96,7 +140,11 @@ class FlashlightController extends ChangeNotifier {
       _isOn = nextState;
 
       if (_autoModeEnabled && _hasSensorReading) {
-        _manualOverrideActive = _isOn != _shouldBeOnBySensor;
+        final bool sensorWantsOn = _sensorWantsOnForOverrideResolution();
+
+        // Se o estado manual contrariar o sensor, o override fica ativo.
+        // Se coincidir com o esperado pelo sensor, o override termina.
+        _manualOverrideActive = (_isOn != sensorWantsOn);
       } else {
         _manualOverrideActive = false;
       }
@@ -110,41 +158,101 @@ class FlashlightController extends ChangeNotifier {
 
   Future<void> updateLux(int lux) async {
     _currentLux = lux;
-    final shouldTurnOn = lux <= _darknessThresholdLux;
-
     _hasSensorReading = true;
-    _shouldBeOnBySensor = shouldTurnOn;
 
     if (!_autoModeEnabled) {
+      _cancelPendingTimers();
       notifyListeners();
       return;
     }
 
+    // Se houver override manual, o automático não atua.
+    // Só volta a ficar disponível quando o estado atual coincidir
+    // com o que o sensor "quereria".
     if (_manualOverrideActive) {
-      if (_isOn == _shouldBeOnBySensor) {
+      final bool sensorWantsOn = _sensorWantsOnForOverrideResolution();
+
+      if (_isOn == sensorWantsOn) {
         _manualOverrideActive = false;
-        notifyListeners();
       }
+
+      notifyListeners();
       return;
     }
 
+    if (_isOn) {
+      _handleAutomaticWhileFlashlightOn(lux);
+    } else {
+      _handleAutomaticWhileFlashlightOff(lux);
+    }
+
     notifyListeners();
-    await _applyAutomaticStateIfNeeded();
   }
 
-  Future<void> _applyAutomaticStateIfNeeded() async {
-    if (!_autoModeEnabled) return;
-    if (_manualOverrideActive) return;
-    if (!_hasSensorReading) return;
-    if (!_isAvailable) return;
-    if (_isBusy) return;
-    if (_isOn == _shouldBeOnBySensor) return;
+  void _handleAutomaticWhileFlashlightOff(int lux) {
+    // Se está desligada, só nos interessa eventualmente ligar.
+    _cancelPendingTurnOff();
+
+    if (lux <= turnOnThresholdLux) {
+      _pendingTurnOnTimer ??= Timer(_turnOnDelay, () async {
+        _pendingTurnOnTimer = null;
+
+        final currentLux = _currentLux;
+        if (currentLux == null) return;
+        if (!_autoModeEnabled || _manualOverrideActive) return;
+        if (currentLux > turnOnThresholdLux) return;
+
+        await _setTorchState(true);
+      });
+    } else {
+      _cancelPendingTurnOn();
+    }
+  }
+
+  void _handleAutomaticWhileFlashlightOn(int lux) {
+    // Se está ligada, só nos interessa eventualmente desligar.
+    _cancelPendingTurnOn();
+
+    if (lux >= turnOffThresholdLux) {
+      _pendingTurnOffTimer ??= Timer(_turnOffDelay, () async {
+        _pendingTurnOffTimer = null;
+
+        final currentLux = _currentLux;
+        if (currentLux == null) return;
+        if (!_autoModeEnabled || _manualOverrideActive) return;
+        if (currentLux < turnOffThresholdLux) return;
+
+        await _setTorchState(false);
+      });
+    } else {
+      _cancelPendingTurnOff();
+    }
+  }
+
+  bool _sensorWantsOnForOverrideResolution() {
+    final currentLux = _currentLux;
+    if (currentLux == null) {
+      return _isOn;
+    }
+
+    // Para resolver override, usamos uma intenção estável:
+    // - abaixo do limiar de ligar => sensor quer ligada
+    // - acima do limiar de desligar => sensor quer desligada
+    // - na zona neutra => mantém o estado atual
+    if (currentLux <= turnOnThresholdLux) return true;
+    if (currentLux >= turnOffThresholdLux) return false;
+    return _isOn;
+  }
+
+  Future<void> _setTorchState(bool shouldTurnOn) async {
+    if (!_isAvailable || _isBusy) return;
+    if (_isOn == shouldTurnOn) return;
 
     _isBusy = true;
     notifyListeners();
 
     try {
-      if (_shouldBeOnBySensor) {
+      if (shouldTurnOn) {
         await _flashlightService.enable();
         _isOn = true;
       } else {
@@ -160,6 +268,8 @@ class FlashlightController extends ChangeNotifier {
   }
 
   Future<void> turnOff() async {
+    _cancelPendingTimers();
+
     if (!_isOn) return;
 
     try {
@@ -172,9 +282,25 @@ class FlashlightController extends ChangeNotifier {
     }
   }
 
+  void _cancelPendingTurnOn() {
+    _pendingTurnOnTimer?.cancel();
+    _pendingTurnOnTimer = null;
+  }
+
+  void _cancelPendingTurnOff() {
+    _pendingTurnOffTimer?.cancel();
+    _pendingTurnOffTimer = null;
+  }
+
+  void _cancelPendingTimers() {
+    _cancelPendingTurnOn();
+    _cancelPendingTurnOff();
+  }
+
   @override
   void dispose() {
-    turnOff();
+    _cancelPendingTimers();
+    unawaited(turnOff());
     super.dispose();
   }
 }
