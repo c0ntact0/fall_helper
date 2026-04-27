@@ -1,3 +1,4 @@
+import 'package:fall_helper/features/video_loop/presentation/controllers/video_loop_controller.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/services/flashlight_service.dart';
@@ -11,6 +12,8 @@ import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
 import '../widgets/panic_card.dart';
+import '../../../video_loop/services/circular_video_recorder.dart';
+import '../../../../core/services/video_storage_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,6 +25,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late final FlashlightController _flashlightController;
   late final LightSensorController _lightSensorController;
+  late final VideoStorageService _videoStorageService;
+  late final VideoLoopController _videoLoopController;
   late final HomeController _controller;
 
   @override
@@ -36,15 +41,23 @@ class _HomePageState extends State<HomePage> {
       lightSensorService: LightSensorService(),
     );
 
+    _videoStorageService = VideoStorageService();
+
+    _videoLoopController = VideoLoopController(
+      recorder: CircularVideoRecorder(storageService: _videoStorageService), 
+      storageService: _videoStorageService);
+
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
       flashlightController: _flashlightController,
+      videoLoopController: _videoLoopController,
     );
 
     _controller.addListener(_onControllerChanged);
     _flashlightController.addListener(_onFlashlightChanged);
     _lightSensorController.addListener(_onLightSensorChanged);
+    _videoLoopController.addListener(_onVideoLoopChanged);
 
     _initializePage();
   }
@@ -68,6 +81,7 @@ class _HomePageState extends State<HomePage> {
     _controller.dispose();
     _flashlightController.dispose();
     _lightSensorController.dispose();
+    _videoLoopController.dispose();
 
     super.dispose();
   }
@@ -102,6 +116,17 @@ class _HomePageState extends State<HomePage> {
         context,
       ).showSnackBar(SnackBar(content: Text(errorMessage)));
       _lightSensorController.clearError();
+    }
+  }
+
+  void _onVideoLoopChanged() {
+    final errorMessage = _videoLoopController.errorMessage;
+
+    if (errorMessage != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      _videoLoopController.clearError();
     }
   }
 
@@ -158,9 +183,11 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 if (_controller.showFallDetectionButton) ...[
+
                   FallDetectionCard(
                     isActive: _controller.isFallDetectionActive,
-                    onTap: _controller.toggleFallDetection,
+                    //onTap: _controller.toggleFallDetection,
+                    onTap: _controller.simulateFallAlert,
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -170,6 +197,8 @@ class _HomePageState extends State<HomePage> {
                   autoModeEnabled: _flashlightController.autoModeEnabled,
                   manualOverrideActive:
                       _flashlightController.manualOverrideActive,
+                  blockedByVideoRecording:
+                      _flashlightController.blockedByVideoRecording,
                   onTap: _flashlightController.toggleManual,
                 ),
                 if (_controller.showPanicButton) ...[

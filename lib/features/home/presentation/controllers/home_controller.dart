@@ -5,20 +5,25 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
-import '../../../settings/domain/models/caregiver.dart';
-import '../../../settings/domain/models/user_feature_settings.dart';
+import '../../../video_loop/domain/models/video_loop_settings.dart';
+//import '../../../settings/domain/models/alert_settings.dart';
+//import '../../../settings/domain/models/caregiver.dart';
+//import '../../../settings/domain/models/user_feature_settings.dart';
+import '../../../video_loop/presentation/controllers/video_loop_controller.dart'; //temp
 
 class HomeController extends ChangeNotifier {
   HomeController({
     required StorageService storageService,
     required PhoneCallService phoneCallService,
     required this.flashlightController,
+    required this.videoLoopController, // temp
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
   final FlashlightController flashlightController;
+  final VideoLoopController videoLoopController; // temp
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -50,9 +55,9 @@ class HomeController extends ChangeNotifier {
   Timer? _panicTimer;
 
   Future<void> loadHomeSettings() async {
-    final Caregiver caregiver = await _storageService.loadCaregiver();
-    final UserFeatureSettings userFeatureSettings = await _storageService
-        .loadUserFeatureSettings();
+    final caregiver = await _storageService.loadCaregiver();
+    final userFeatureSettings = await _storageService.loadUserFeatureSettings();
+    final alertSettings = await _storageService.loadAlertSettings();
 
     _caregiverName = caregiver.name;
     _caregiverPhoneNumber = caregiver.phoneNumber;
@@ -65,6 +70,28 @@ class HomeController extends ChangeNotifier {
     );
     await flashlightController.setAutoModeEnabled(
       userFeatureSettings.enableAutomaticFlashlightMode,
+    );
+
+    final videoSettings = VideoLoopSettings(
+      enabled: alertSettings.recordAndSendVideo,
+      bufferSeconds: alertSettings.circularRecordingSeconds,
+      withAudio: false,
+      quality: VideoLoopQuality.p480,
+      fps: 15,
+      segmentSeconds: 5,
+    );
+
+    final isVideoRecordingEnabled = alertSettings.recordAndSendVideo;
+
+    if (isVideoRecordingEnabled) {
+      await videoLoopController.initialize(videoSettings);
+      await videoLoopController.startIfEnabled();
+    } else {
+      await videoLoopController.disableAndClear();
+    }
+
+    await flashlightController.setBlockedByVideoRecording(
+      isVideoRecordingEnabled,
     );
 
     _isLoading = false;
@@ -127,6 +154,24 @@ class HomeController extends ChangeNotifier {
       _panicProgress = 0.0;
       notifyListeners();
     }
+  }
+
+  // temp
+  Future<void> simulateFallAlert() async {
+    final evidence = await videoLoopController
+        .preserveEvidenceForSimulatedFall();
+
+    if (evidence == null) {
+      _errorMessage = 'Sem evidência de vídeo disponível.';
+      notifyListeners();
+      return;
+    }
+
+    _errorMessage =
+        'Alerta simulado: vídeo preservado em ${evidence.folderPath}';
+
+    debugPrint('Evidence folder: ${evidence.folderPath}');
+    notifyListeners();
   }
 
   @override

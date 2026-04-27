@@ -42,8 +42,8 @@ class SettingsController extends ChangeNotifier {
   bool _recordAndSendVideo = false;
   bool get recordAndSendVideo => _recordAndSendVideo;
 
-  double _circularRecordingMinutes = 5;
-  double get circularRecordingMinutes => _circularRecordingMinutes;
+  int _circularRecordingSeconds = 60;
+  int get circularRecordingSeconds => _circularRecordingSeconds;
 
   bool _showFallDetectionButton = true;
   bool get showFallDetectionButton => _showFallDetectionButton;
@@ -80,7 +80,7 @@ class SettingsController extends ChangeNotifier {
     _sendSms = alertSettings.sendSms;
     _sendGps = alertSettings.sendGps;
     _recordAndSendVideo = alertSettings.recordAndSendVideo;
-    _circularRecordingMinutes = alertSettings.circularRecordingMinutes;
+    _circularRecordingSeconds = alertSettings.circularRecordingSeconds;
 
     _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
     _showPanicButton = userFeatureSettings.showPanicButton;
@@ -117,8 +117,8 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setCircularRecordingMinutes(double value) {
-    _circularRecordingMinutes = value;
+  void setCircularRecordingSeconds(int value) {
+    _circularRecordingSeconds = value;
     notifyListeners();
   }
 
@@ -172,7 +172,7 @@ class SettingsController extends ChangeNotifier {
       sendSms: _sendSms,
       sendGps: _sendGps,
       recordAndSendVideo: _recordAndSendVideo,
-      circularRecordingMinutes: _circularRecordingMinutes,
+      circularRecordingSeconds: _circularRecordingSeconds,
     );
 
     final userFeatureSettings = UserFeatureSettings(

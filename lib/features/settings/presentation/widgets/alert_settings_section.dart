@@ -7,12 +7,12 @@ class AlertSettingsSection extends StatelessWidget {
   final bool sendSms;
   final bool sendGps;
   final bool recordAndSendVideo;
-  final double circularRecordingMinutes;
+  final int circularRecordingSeconds;
   final ValueChanged<bool> onMakePhoneCallChanged;
   final ValueChanged<bool> onSendSmsChanged;
   final ValueChanged<bool> onSendGpsChanged;
   final ValueChanged<bool> onRecordAndSendVideoChanged;
-  final ValueChanged<double> onCircularRecordingMinutesChanged;
+  final ValueChanged<int> onCircularRecordingSecondsChanged;
 
   const AlertSettingsSection({
     super.key,
@@ -20,16 +20,36 @@ class AlertSettingsSection extends StatelessWidget {
     required this.sendSms,
     required this.sendGps,
     required this.recordAndSendVideo,
-    required this.circularRecordingMinutes,
+    required this.circularRecordingSeconds,
     required this.onMakePhoneCallChanged,
     required this.onSendSmsChanged,
     required this.onSendGpsChanged,
     required this.onRecordAndSendVideoChanged,
-    required this.onCircularRecordingMinutesChanged,
+    required this.onCircularRecordingSecondsChanged,
   });
+
+  static const List<int> _allowedValues = [30, 60, 90, 120];
+
+  String _formatSeconds(int seconds) {
+    if (seconds < 60) {
+      return '$seconds s';
+    }
+
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+
+    if (remainingSeconds == 0) {
+      return '$minutes min';
+    }
+
+    return '$minutes min ${remainingSeconds}s';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = _allowedValues.indexOf(circularRecordingSeconds);
+    final sliderIndex = currentIndex >= 0 ? currentIndex.toDouble() : 1.0;
+
     return SettingsSection(
       title: 'Configuração de alertas',
       child: Column(
@@ -62,27 +82,21 @@ class AlertSettingsSection extends StatelessWidget {
           Row(
             children: [
               const Expanded(child: Text('Tempo gravação circular')),
-              Text(formatMinutes(circularRecordingMinutes))
+              Text(_formatSeconds(circularRecordingSeconds)),
             ],
           ),
           Slider(
-            value: circularRecordingMinutes,
-            min: 0.5,
-            max: 5.0,
-            divisions: 9,
-            label: formatMinutes(circularRecordingMinutes),
-            onChanged: onCircularRecordingMinutesChanged,
+            value: sliderIndex,
+            min: 0,
+            max: (_allowedValues.length - 1).toDouble(),
+            divisions: _allowedValues.length - 1,
+            label: _formatSeconds(circularRecordingSeconds),
+            onChanged: (value) {
+              onCircularRecordingSecondsChanged(_allowedValues[value.round()]);
+            },
           ),
         ],
       ),
     );
   }
-
-  String formatMinutes(double value) {
-    if (value == value.roundToDouble()) {
-      return '${value.toInt()} min';
-    }
-    return '${value.toStringAsFixed(1)} min';
-  }
 }
-

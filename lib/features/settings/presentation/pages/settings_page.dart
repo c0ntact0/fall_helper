@@ -110,15 +110,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       sendSms: _controller.sendSms,
                       sendGps: _controller.sendGps,
                       recordAndSendVideo: _controller.recordAndSendVideo,
-                      circularRecordingMinutes:
-                          _controller.circularRecordingMinutes,
+                      circularRecordingSeconds:
+                          _controller.circularRecordingSeconds,
                       onMakePhoneCallChanged: _controller.setMakePhoneCall,
                       onSendSmsChanged: _controller.setSendSms,
                       onSendGpsChanged: _controller.setSendGps,
                       onRecordAndSendVideoChanged:
                           _controller.setRecordAndSendVideo,
-                      onCircularRecordingMinutesChanged:
-                          _controller.setCircularRecordingMinutes,
+                      onCircularRecordingSecondsChanged:
+                          _controller.setCircularRecordingSeconds,
                     ),
                     const SizedBox(height: 16),
                     UserFeaturesSection(

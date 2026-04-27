@@ -25,8 +25,10 @@ class FlashlightController extends ChangeNotifier {
   bool _manualOverrideActive = false;
   bool get manualOverrideActive => _manualOverrideActive;
 
-  bool _hasSensorReading = false;
-  bool get hasSensorReading => _hasSensorReading;
+  bool _blockedByVideoRecording = false;
+  bool get blockedByVideoRecording => _blockedByVideoRecording;
+
+  bool get canUseFlashlight => _isAvailable && !_blockedByVideoRecording;
 
   int? _currentLux;
   int? get currentLux => _currentLux;
@@ -34,13 +36,9 @@ class FlashlightController extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  // Threshold central configurável nas settings.
   double _darknessThresholdLux = 20.0;
   double get darknessThresholdLux => _darknessThresholdLux;
 
-  // Histerese:
-  // liga abaixo de (threshold - margin)
-  // desliga acima de (threshold + margin)
   double _hysteresisMarginLux = 5.0;
   double get hysteresisMarginLux => _hysteresisMarginLux;
 
@@ -53,12 +51,8 @@ class FlashlightController extends ChangeNotifier {
   double get turnOffThresholdLux =>
       _darknessThresholdLux + _hysteresisMarginLux;
 
-  // Atrasos temporais
   Duration _turnOnDelay = const Duration(seconds: 2);
-  Duration get turnOnDelay => _turnOnDelay;
-
   Duration _turnOffDelay = const Duration(seconds: 3);
-  Duration get turnOffDelay => _turnOffDelay;
 
   Timer? _pendingTurnOnTimer;
   Timer? _pendingTurnOffTimer;
@@ -72,6 +66,24 @@ class FlashlightController extends ChangeNotifier {
     _errorMessage = null;
   }
 
+  Future<void> setBlockedByVideoRecording(bool value) async {
+    _blockedByVideoRecording = value;
+
+    if (value) {
+      _cancelPendingTimers();
+      _manualOverrideActive = false;
+
+      if (_isOn) {
+        try {
+          await _flashlightService.disable();
+          _isOn = false;
+        } catch (_) {}
+      }
+    }
+
+    notifyListeners();
+  }
+
   Future<void> setDarknessThresholdLux(double value) async {
     _darknessThresholdLux = value;
     notifyListeners();
@@ -79,21 +91,6 @@ class FlashlightController extends ChangeNotifier {
     if (_currentLux != null) {
       await updateLux(_currentLux!);
     }
-  }
-
-  void setHysteresisMarginLux(double value) {
-    _hysteresisMarginLux = value;
-    notifyListeners();
-  }
-
-  void setTurnOnDelay(Duration value) {
-    _turnOnDelay = value;
-    notifyListeners();
-  }
-
-  void setTurnOffDelay(Duration value) {
-    _turnOffDelay = value;
-    notifyListeners();
   }
 
   Future<void> setAutoModeEnabled(bool value) async {
@@ -116,8 +113,10 @@ class FlashlightController extends ChangeNotifier {
   Future<void> toggleManual() async {
     if (_isBusy) return;
 
-    if (!_isAvailable) {
-      _errorMessage = 'Este dispositivo não tem lanterna disponível.';
+    if (!canUseFlashlight) {
+      _errorMessage = _blockedByVideoRecording
+          ? 'Lanterna indisponível durante a gravação de vídeo.'
+          : 'Este dispositivo não tem lanterna disponível.';
       notifyListeners();
       return;
     }
@@ -139,11 +138,8 @@ class FlashlightController extends ChangeNotifier {
 
       _isOn = nextState;
 
-      if (_autoModeEnabled && _hasSensorReading) {
-        final bool sensorWantsOn = _sensorWantsOnForOverrideResolution();
-
-        // Se o estado manual contrariar o sensor, o override fica ativo.
-        // Se coincidir com o esperado pelo sensor, o override termina.
+      if (_autoModeEnabled && _currentLux != null) {
+        final sensorWantsOn = _sensorWantsOnForOverrideResolution();
         _manualOverrideActive = (_isOn != sensorWantsOn);
       } else {
         _manualOverrideActive = false;
@@ -158,7 +154,12 @@ class FlashlightController extends ChangeNotifier {
 
   Future<void> updateLux(int lux) async {
     _currentLux = lux;
-    _hasSensorReading = true;
+
+    if (_blockedByVideoRecording) {
+      _cancelPendingTimers();
+      notifyListeners();
+      return;
+    }
 
     if (!_autoModeEnabled) {
       _cancelPendingTimers();
@@ -166,11 +167,8 @@ class FlashlightController extends ChangeNotifier {
       return;
     }
 
-    // Se houver override manual, o automático não atua.
-    // Só volta a ficar disponível quando o estado atual coincidir
-    // com o que o sensor "quereria".
     if (_manualOverrideActive) {
-      final bool sensorWantsOn = _sensorWantsOnForOverrideResolution();
+      final sensorWantsOn = _sensorWantsOnForOverrideResolution();
 
       if (_isOn == sensorWantsOn) {
         _manualOverrideActive = false;
@@ -190,7 +188,6 @@ class FlashlightController extends ChangeNotifier {
   }
 
   void _handleAutomaticWhileFlashlightOff(int lux) {
-    // Se está desligada, só nos interessa eventualmente ligar.
     _cancelPendingTurnOff();
 
     if (lux <= turnOnThresholdLux) {
@@ -199,6 +196,7 @@ class FlashlightController extends ChangeNotifier {
 
         final currentLux = _currentLux;
         if (currentLux == null) return;
+        if (_blockedByVideoRecording) return;
         if (!_autoModeEnabled || _manualOverrideActive) return;
         if (currentLux > turnOnThresholdLux) return;
 
@@ -210,7 +208,6 @@ class FlashlightController extends ChangeNotifier {
   }
 
   void _handleAutomaticWhileFlashlightOn(int lux) {
-    // Se está ligada, só nos interessa eventualmente desligar.
     _cancelPendingTurnOn();
 
     if (lux >= turnOffThresholdLux) {
@@ -219,6 +216,7 @@ class FlashlightController extends ChangeNotifier {
 
         final currentLux = _currentLux;
         if (currentLux == null) return;
+        if (_blockedByVideoRecording) return;
         if (!_autoModeEnabled || _manualOverrideActive) return;
         if (currentLux < turnOffThresholdLux) return;
 
@@ -231,21 +229,15 @@ class FlashlightController extends ChangeNotifier {
 
   bool _sensorWantsOnForOverrideResolution() {
     final currentLux = _currentLux;
-    if (currentLux == null) {
-      return _isOn;
-    }
+    if (currentLux == null) return _isOn;
 
-    // Para resolver override, usamos uma intenção estável:
-    // - abaixo do limiar de ligar => sensor quer ligada
-    // - acima do limiar de desligar => sensor quer desligada
-    // - na zona neutra => mantém o estado atual
     if (currentLux <= turnOnThresholdLux) return true;
     if (currentLux >= turnOffThresholdLux) return false;
     return _isOn;
   }
 
   Future<void> _setTorchState(bool shouldTurnOn) async {
-    if (!_isAvailable || _isBusy) return;
+    if (!canUseFlashlight || _isBusy) return;
     if (_isOn == shouldTurnOn) return;
 
     _isBusy = true;
@@ -300,7 +292,7 @@ class FlashlightController extends ChangeNotifier {
   @override
   void dispose() {
     _cancelPendingTimers();
-    unawaited(turnOff());
+    turnOff();
     super.dispose();
   }
 }

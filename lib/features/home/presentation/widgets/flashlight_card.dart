@@ -7,6 +7,7 @@ class FlashlightCard extends StatelessWidget {
   final bool isAvailable;
   final bool autoModeEnabled;
   final bool manualOverrideActive;
+  final bool blockedByVideoRecording;
   final VoidCallback onTap;
 
   const FlashlightCard({
@@ -15,11 +16,14 @@ class FlashlightCard extends StatelessWidget {
     required this.isAvailable,
     required this.autoModeEnabled,
     required this.manualOverrideActive,
+    required this.blockedByVideoRecording,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool canUse = isAvailable && !blockedByVideoRecording;
+
     final String status;
     final String instruction;
     final Color backgroundColor;
@@ -27,6 +31,10 @@ class FlashlightCard extends StatelessWidget {
     if (!isAvailable) {
       status = 'Indisponível';
       instruction = 'Sem suporte no dispositivo';
+      backgroundColor = Colors.grey;
+    } else if (blockedByVideoRecording) {
+      status = 'Indisponível';
+      instruction = 'Desativada durante gravação de vídeo';
       backgroundColor = Colors.grey;
     } else {
       if (autoModeEnabled) {
@@ -37,13 +45,9 @@ class FlashlightCard extends StatelessWidget {
         status = isActive ? 'Ativa' : 'Desativa';
       }
 
-      if (autoModeEnabled && manualOverrideActive) {
-        instruction = 'Automático temporariamente suspenso';
-      } else {
-        instruction = isActive
-            ? 'Pressione para desativar'
-            : 'Pressione para ativar';
-      }
+      instruction = autoModeEnabled && manualOverrideActive
+          ? 'Automático temporariamente suspenso'
+          : (isActive ? 'Pressione para desativar' : 'Pressione para ativar');
 
       backgroundColor = isActive ? Colors.amber : Colors.red;
     }
@@ -53,7 +57,7 @@ class FlashlightCard extends StatelessWidget {
       status: status,
       instruction: instruction,
       backgroundColor: backgroundColor,
-      onTap: isAvailable ? onTap : () {},
+      onTap: canUse ? onTap : () {},
     );
   }
 }

@@ -14,7 +14,7 @@ class StorageService {
   static const _sendSmsKey = 'send_sms';
   static const _sendGpsKey = 'send_gps';
   static const _recordAndSendVideoKey = 'record_and_send_video';
-  static const _circularRecordingMinutesKey = 'circular_recording_minutes';
+  static const _circularRecordingSecondsKey = 'circular_recording_seconds';
 
   static const _showFallDetectionButtonKey = 'show_fall_detection_button';
   static const _showPanicButtonKey = 'show_panic_button';
@@ -51,8 +51,8 @@ class StorageService {
       sendSms: prefs.getBool(_sendSmsKey) ?? false,
       sendGps: prefs.getBool(_sendGpsKey) ?? false,
       recordAndSendVideo: prefs.getBool(_recordAndSendVideoKey) ?? false,
-      circularRecordingMinutes:
-          prefs.getDouble(_circularRecordingMinutesKey) ?? 15,
+      circularRecordingSeconds:
+          prefs.getInt(_circularRecordingSecondsKey) ?? 60,
     );
   }
 
@@ -63,9 +63,9 @@ class StorageService {
     await prefs.setBool(_sendSmsKey, settings.sendSms);
     await prefs.setBool(_sendGpsKey, settings.sendGps);
     await prefs.setBool(_recordAndSendVideoKey, settings.recordAndSendVideo);
-    await prefs.setDouble(
-      _circularRecordingMinutesKey,
-      settings.circularRecordingMinutes,
+    await prefs.setInt(
+      _circularRecordingSecondsKey,
+      settings.circularRecordingSeconds,
     );
   }
 
