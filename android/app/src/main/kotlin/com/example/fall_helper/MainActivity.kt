@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Bundle
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
@@ -12,7 +11,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val channelName = "fall_helper/phone_call"
+    private val phoneCallChannelName = "fall_helper/phone_call"
+    private val videoConsolidationChannelName = "fall_helper/video_consolidation"
     private val requestCallPermissionCode = 1001
 
     private var pendingPhoneNumber: String? = null
@@ -23,7 +23,7 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            channelName
+            phoneCallChannelName
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "callPhoneNumber" -> {
@@ -39,6 +39,15 @@ class MainActivity : FlutterActivity() {
 
                 else -> result.notImplemented()
             }
+        }
+
+        val consolidationBridge = VideoConsolidationBridge(this)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            videoConsolidationChannelName
+        ).setMethodCallHandler { call, result ->
+            consolidationBridge.handle(call, result)
         }
     }
 

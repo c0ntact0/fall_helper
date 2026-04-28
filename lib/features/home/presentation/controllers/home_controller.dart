@@ -8,6 +8,7 @@ import '../../../drive_backup/presentation/controllers/caregiver_drive_controlle
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../video_loop/domain/models/video_loop_settings.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
+import '../../../../core/services/video_consolidation_service.dart';
 
 class HomeController extends ChangeNotifier {
   HomeController({
@@ -16,14 +17,17 @@ class HomeController extends ChangeNotifier {
     required this.flashlightController,
     required this.videoLoopController,
     required this.caregiverDriveController,
+    required VideoConsolidationService videoConsolidationService,
   }) : _storageService = storageService,
-       _phoneCallService = phoneCallService;
+       _phoneCallService = phoneCallService,
+       _videoConsolidationService = videoConsolidationService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
   final FlashlightController flashlightController;
   final VideoLoopController videoLoopController;
   final CaregiverDriveController caregiverDriveController;
+  final VideoConsolidationService _videoConsolidationService;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -176,9 +180,13 @@ class HomeController extends ChangeNotifier {
         return;
       }
 
+      await _videoConsolidationService.consolidateEvidenceFolder(
+        evidence.folderPath,
+      );
+
       if (!caregiverDriveController.session.hasLinkedAccount) {
         _errorMessage =
-            'Vídeo preservado, mas o Google Drive do cuidador não está ligado.';
+            'Vídeo preservado e consolidado, mas o Google Drive do cuidador não está ligado.';
         debugPrint('Evidence folder: ${evidence.folderPath}');
         notifyListeners();
 
@@ -193,7 +201,7 @@ class HomeController extends ChangeNotifier {
 
       if (uploadResult == null) {
         _errorMessage =
-            'Vídeo preservado, mas falhou o upload para Google Drive.';
+            'Vídeo preservado e consolidado, mas falhou o upload para Google Drive.';
         debugPrint('Evidence folder: ${evidence.folderPath}');
         notifyListeners();
 

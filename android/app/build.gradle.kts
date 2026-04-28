@@ -5,6 +5,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+dependencies {
+    implementation("androidx.media3:media3-transformer:1.10.0")
+    implementation("androidx.media3:media3-effect:1.10.0")
+    implementation("androidx.media3:media3-common:1.10.0")
+}
+
 android {
     namespace = "com.example.fall_helper"
     compileSdk = flutter.compileSdkVersion

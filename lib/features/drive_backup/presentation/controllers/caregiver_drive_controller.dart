@@ -155,6 +155,7 @@ class CaregiverDriveController extends ChangeNotifier {
     }
 
     final items = <DriveUploadItem>[];
+    File? consolidatedVideo;
 
     await for (final entity in directory.list()) {
       if (entity is! File) continue;
@@ -162,14 +163,8 @@ class CaregiverDriveController extends ChangeNotifier {
       final filename = entity.uri.pathSegments.last;
       final lower = filename.toLowerCase();
 
-      if (lower.endsWith('.mp4')) {
-        items.add(
-          DriveUploadItem(
-            localPath: entity.path,
-            remoteName: filename,
-            mimeType: 'video/mp4',
-          ),
-        );
+      if (lower == 'alert_video.mp4') {
+        consolidatedVideo = entity;
       } else if (lower.endsWith('.json')) {
         items.add(
           DriveUploadItem(
@@ -179,6 +174,17 @@ class CaregiverDriveController extends ChangeNotifier {
           ),
         );
       }
+    }
+
+    if (consolidatedVideo != null) {
+      items.insert(
+        0,
+        DriveUploadItem(
+          localPath: consolidatedVideo.path,
+          remoteName: 'alert_video.mp4',
+          mimeType: 'video/mp4',
+        ),
+      );
     }
 
     items.sort((a, b) => a.remoteName.compareTo(b.remoteName));

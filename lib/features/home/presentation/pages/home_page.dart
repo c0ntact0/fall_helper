@@ -11,6 +11,7 @@ import '../../../light_sensor/presentation/controllers/light_sensor_controller.d
 import '../../../settings/presentation/pages/settings_host_page.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
 import '../../../video_loop/services/circular_video_recorder.dart';
+import '../../../../core/services/video_consolidation_service.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
@@ -31,6 +32,7 @@ class _HomePageState extends State<HomePage> {
   late final VideoStorageService _videoStorageService;
   late final VideoLoopController _videoLoopController;
   late final HomeController _controller;
+  late final VideoConsolidationService _videoConsolidationService;
 
   @override
   void initState() {
@@ -51,12 +53,15 @@ class _HomePageState extends State<HomePage> {
       storageService: _videoStorageService,
     );
 
+    _videoConsolidationService = VideoConsolidationService();
+
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
       flashlightController: _flashlightController,
       videoLoopController: _videoLoopController,
       caregiverDriveController: widget.caregiverDriveController,
+      videoConsolidationService: _videoConsolidationService,
     );
 
     _controller.addListener(_onControllerChanged);
@@ -64,6 +69,7 @@ class _HomePageState extends State<HomePage> {
     _lightSensorController.addListener(_onLightSensorChanged);
     _videoLoopController.addListener(_onVideoLoopChanged);
     widget.caregiverDriveController.addListener(_onDriveChanged);
+
 
     _initializePage();
   }
