@@ -9,6 +9,7 @@ import '../../../flashlight/presentation/controllers/flashlight_controller.dart'
 import '../../../video_loop/domain/models/video_loop_settings.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
 import '../../../../core/services/video_consolidation_service.dart';
+import '../../../../core/services/video_evidence_cleanup_service.dart';
 
 class HomeController extends ChangeNotifier {
   HomeController({
@@ -18,9 +19,11 @@ class HomeController extends ChangeNotifier {
     required this.videoLoopController,
     required this.caregiverDriveController,
     required VideoConsolidationService videoConsolidationService,
+    required VideoEvidenceCleanupService videoEvidenceCleanupService,
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService,
-       _videoConsolidationService = videoConsolidationService;
+       _videoConsolidationService = videoConsolidationService,
+       _videoEvidenceCleanupService = videoEvidenceCleanupService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
@@ -28,6 +31,9 @@ class HomeController extends ChangeNotifier {
   final VideoLoopController videoLoopController;
   final CaregiverDriveController caregiverDriveController;
   final VideoConsolidationService _videoConsolidationService;
+  final VideoEvidenceCleanupService _videoEvidenceCleanupService;
+
+  static const bool deleteLocalEvidenceAfterSuccessfulUpload = true;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -207,6 +213,12 @@ class HomeController extends ChangeNotifier {
 
         await videoLoopController.restartLoopIfEnabled();
         return;
+      }
+
+      if (deleteLocalEvidenceAfterSuccessfulUpload) {
+        await _videoEvidenceCleanupService.deleteEvidenceFolder(
+          evidence.folderPath,
+        );
       }
 
       _errorMessage = 'Alerta simulado: vídeo enviado para Google Drive.';

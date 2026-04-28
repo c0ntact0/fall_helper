@@ -12,6 +12,7 @@ import '../../../settings/presentation/pages/settings_host_page.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
 import '../../../video_loop/services/circular_video_recorder.dart';
 import '../../../../core/services/video_consolidation_service.dart';
+import '../../../../core/services/video_evidence_cleanup_service.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   late final VideoLoopController _videoLoopController;
   late final HomeController _controller;
   late final VideoConsolidationService _videoConsolidationService;
+  late final VideoEvidenceCleanupService _videoEvidenceCleanupService;
 
   @override
   void initState() {
@@ -55,6 +57,8 @@ class _HomePageState extends State<HomePage> {
 
     _videoConsolidationService = VideoConsolidationService();
 
+    _videoEvidenceCleanupService = VideoEvidenceCleanupService();
+
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
@@ -62,6 +66,7 @@ class _HomePageState extends State<HomePage> {
       videoLoopController: _videoLoopController,
       caregiverDriveController: widget.caregiverDriveController,
       videoConsolidationService: _videoConsolidationService,
+      videoEvidenceCleanupService: _videoEvidenceCleanupService,
     );
 
     _controller.addListener(_onControllerChanged);
