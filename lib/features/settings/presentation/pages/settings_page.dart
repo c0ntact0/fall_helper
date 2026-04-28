@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
 import '../controllers/settings_controller.dart';
 import '../widgets/alert_settings_section.dart';
@@ -10,8 +11,13 @@ import '../widgets/user_features_section.dart';
 
 class SettingsPage extends StatefulWidget {
   final LightSensorController? lightSensorController;
+  final CaregiverDriveController? caregiverDriveController;
 
-  const SettingsPage({super.key, this.lightSensorController});
+  const SettingsPage({
+    super.key,
+    this.lightSensorController,
+    this.caregiverDriveController,
+  });
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -27,12 +33,14 @@ class _SettingsPageState extends State<SettingsPage> {
     _controller = SettingsController(storageService: StorageService());
 
     _controller.addListener(_onControllerChanged);
+    widget.caregiverDriveController?.addListener(_onDriveControllerChanged);
     _controller.initialize();
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    widget.caregiverDriveController?.removeListener(_onDriveControllerChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -48,6 +56,20 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  void _onDriveControllerChanged() {
+    final driveController = widget.caregiverDriveController;
+    if (driveController == null) return;
+
+    final errorMessage = driveController.errorMessage;
+
+    if (errorMessage != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      driveController.clearError();
+    }
+  }
+
   Future<void> _saveAndPop() async {
     final didSave = await _controller.saveSettings();
 
@@ -58,12 +80,82 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Widget _buildDriveSection() {
+    final driveController = widget.caregiverDriveController;
+
+    if (driveController == null) {
+      return const SizedBox.shrink();
+    }
+
+    final session = driveController.session;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Google Drive do cuidador',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              session.hasLinkedAccount
+                  ? 'Ligado a: ${session.caregiverGoogleEmail}'
+                  : 'Não ligado',
+            ),
+            if (session.rootFolderId != null) ...[
+              const SizedBox(height: 8),
+              const Text('Pasta configurada: Fall Helper Alerts'),
+            ],
+            const SizedBox(height: 12),
+            if (driveController.isAuthorizing)
+              const Center(child: CircularProgressIndicator())
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: session.hasLinkedAccount
+                          ? null
+                          : () async {
+                              await driveController.linkCaregiverDrive();
+                            },
+                      child: const Text('Ligar Google Drive'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: session.hasLinkedAccount
+                          ? () async {
+                              await driveController.unlinkCaregiverDrive();
+                            }
+                          : null,
+                      child: const Text('Desligar'),
+                    ),
+                  ),
+                ],
+              ),
+            if (driveController.isUploading) ...[
+              const SizedBox(height: 12),
+              const Text('Upload em curso...'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: Listenable.merge([
         _controller,
         if (widget.lightSensorController != null) widget.lightSensorController!,
+        if (widget.caregiverDriveController != null)
+          widget.caregiverDriveController!,
       ]),
       builder: (context, _) {
         if (_controller.isLoading) {
@@ -104,6 +196,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       validatePhone: AppValidators.phone,
                       validatePin: AppValidators.pin4Digits,
                     ),
+                    const SizedBox(height: 16),
+                    _buildDriveSection(),
                     const SizedBox(height: 16),
                     AlertSettingsSection(
                       makePhoneCall: _controller.makePhoneCall,

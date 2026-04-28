@@ -1,22 +1,25 @@
-import 'package:fall_helper/features/video_loop/presentation/controllers/video_loop_controller.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/services/flashlight_service.dart';
 import '../../../../core/services/light_sensor_service.dart';
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/services/video_storage_service.dart';
+import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
 import '../../../settings/presentation/pages/settings_host_page.dart';
+import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
+import '../../../video_loop/services/circular_video_recorder.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
 import '../widgets/panic_card.dart';
-import '../../../video_loop/services/circular_video_recorder.dart';
-import '../../../../core/services/video_storage_service.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final CaregiverDriveController caregiverDriveController;
+
+  const HomePage({super.key, required this.caregiverDriveController});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -44,25 +47,29 @@ class _HomePageState extends State<HomePage> {
     _videoStorageService = VideoStorageService();
 
     _videoLoopController = VideoLoopController(
-      recorder: CircularVideoRecorder(storageService: _videoStorageService), 
-      storageService: _videoStorageService);
+      recorder: CircularVideoRecorder(storageService: _videoStorageService),
+      storageService: _videoStorageService,
+    );
 
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
       flashlightController: _flashlightController,
       videoLoopController: _videoLoopController,
+      caregiverDriveController: widget.caregiverDriveController,
     );
 
     _controller.addListener(_onControllerChanged);
     _flashlightController.addListener(_onFlashlightChanged);
     _lightSensorController.addListener(_onLightSensorChanged);
     _videoLoopController.addListener(_onVideoLoopChanged);
+    widget.caregiverDriveController.addListener(_onDriveChanged);
 
     _initializePage();
   }
 
   Future<void> _initializePage() async {
+    await widget.caregiverDriveController.initialize();
     await _controller.loadHomeSettings();
 
     await _lightSensorController.startListening(
@@ -77,6 +84,8 @@ class _HomePageState extends State<HomePage> {
     _controller.removeListener(_onControllerChanged);
     _flashlightController.removeListener(_onFlashlightChanged);
     _lightSensorController.removeListener(_onLightSensorChanged);
+    _videoLoopController.removeListener(_onVideoLoopChanged);
+    widget.caregiverDriveController.removeListener(_onDriveChanged);
 
     _controller.dispose();
     _flashlightController.dispose();
@@ -130,12 +139,25 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _onDriveChanged() {
+    final errorMessage = widget.caregiverDriveController.errorMessage;
+
+    if (errorMessage != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      widget.caregiverDriveController.clearError();
+    }
+  }
+
   Future<void> _openSettings() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            SettingsHostPage(lightSensorController: _lightSensorController),
+        builder: (_) => SettingsHostPage(
+          lightSensorController: _lightSensorController,
+          caregiverDriveController: widget.caregiverDriveController,
+        ),
       ),
     );
 
@@ -156,9 +178,12 @@ class _HomePageState extends State<HomePage> {
         _controller,
         _flashlightController,
         _lightSensorController,
+        _videoLoopController,
+        widget.caregiverDriveController,
       ]),
       builder: (context, _) {
-        if (_controller.isLoading) {
+        if (_controller.isLoading ||
+            widget.caregiverDriveController.isLoading) {
           return const Scaffold(
             body: SafeArea(child: Center(child: CircularProgressIndicator())),
           );
@@ -183,10 +208,8 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 if (_controller.showFallDetectionButton) ...[
-
                   FallDetectionCard(
                     isActive: _controller.isFallDetectionActive,
-                    //onTap: _controller.toggleFallDetection,
                     onTap: _controller.simulateFallAlert,
                   ),
                   const SizedBox(height: 24),

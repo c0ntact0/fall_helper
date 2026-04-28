@@ -124,6 +124,11 @@ class VideoLoopController extends ChangeNotifier {
     }
   }
 
+  Future<void> restartLoopIfEnabled() async {
+    if (!_isEnabled) return;
+    await startIfEnabled();
+  }
+
   void clearError() {
     _errorMessage = null;
   }

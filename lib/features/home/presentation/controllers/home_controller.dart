@@ -4,26 +4,26 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../video_loop/domain/models/video_loop_settings.dart';
-//import '../../../settings/domain/models/alert_settings.dart';
-//import '../../../settings/domain/models/caregiver.dart';
-//import '../../../settings/domain/models/user_feature_settings.dart';
-import '../../../video_loop/presentation/controllers/video_loop_controller.dart'; //temp
+import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
 
 class HomeController extends ChangeNotifier {
   HomeController({
     required StorageService storageService,
     required PhoneCallService phoneCallService,
     required this.flashlightController,
-    required this.videoLoopController, // temp
+    required this.videoLoopController,
+    required this.caregiverDriveController,
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
   final FlashlightController flashlightController;
-  final VideoLoopController videoLoopController; // temp
+  final VideoLoopController videoLoopController;
+  final CaregiverDriveController caregiverDriveController;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -124,10 +124,10 @@ class HomeController extends ChangeNotifier {
     const totalDuration = Duration(seconds: 5);
     const stepDuration = Duration(milliseconds: 100);
 
-    final int totalSteps =
+    final totalSteps =
         totalDuration.inMilliseconds ~/ stepDuration.inMilliseconds;
 
-    int currentStep = 0;
+    var currentStep = 0;
 
     _panicTimer?.cancel();
     _panicTimer = Timer.periodic(stepDuration, (timer) {
@@ -156,22 +156,62 @@ class HomeController extends ChangeNotifier {
     }
   }
 
-  // temp
   Future<void> simulateFallAlert() async {
-    final evidence = await videoLoopController
-        .preserveEvidenceForSimulatedFall();
+    try {
+      final alertSettings = await _storageService.loadAlertSettings();
 
-    if (evidence == null) {
-      _errorMessage = 'Sem evidência de vídeo disponível.';
+      if (!alertSettings.recordAndSendVideo) {
+        _errorMessage =
+            'Alerta simulado sem vídeo. O upload para Drive só acontece quando a gravação de vídeo está ativa.';
+        notifyListeners();
+        return;
+      }
+
+      final evidence = await videoLoopController
+          .preserveEvidenceForSimulatedFall();
+
+      if (evidence == null) {
+        _errorMessage = 'Sem evidência de vídeo disponível.';
+        notifyListeners();
+        return;
+      }
+
+      if (!caregiverDriveController.session.hasLinkedAccount) {
+        _errorMessage =
+            'Vídeo preservado, mas o Google Drive do cuidador não está ligado.';
+        debugPrint('Evidence folder: ${evidence.folderPath}');
+        notifyListeners();
+
+        await videoLoopController.restartLoopIfEnabled();
+        return;
+      }
+
+      final uploadResult = await caregiverDriveController.uploadEvidenceFolder(
+        evidenceFolderPath: evidence.folderPath,
+        alertTime: evidence.alertTime,
+      );
+
+      if (uploadResult == null) {
+        _errorMessage =
+            'Vídeo preservado, mas falhou o upload para Google Drive.';
+        debugPrint('Evidence folder: ${evidence.folderPath}');
+        notifyListeners();
+
+        await videoLoopController.restartLoopIfEnabled();
+        return;
+      }
+
+      _errorMessage = 'Alerta simulado: vídeo enviado para Google Drive.';
+      debugPrint('Evidence folder: ${evidence.folderPath}');
       notifyListeners();
-      return;
+
+      await videoLoopController.restartLoopIfEnabled();
+    } catch (error) {
+      _errorMessage = 'Falha ao processar alerta simulado: $error';
+      notifyListeners();
+
+      await videoLoopController.restartLoopIfEnabled();
     }
-
-    _errorMessage =
-        'Alerta simulado: vídeo preservado em ${evidence.folderPath}';
-
-    debugPrint('Evidence folder: ${evidence.folderPath}');
-    notifyListeners();
   }
 
   @override

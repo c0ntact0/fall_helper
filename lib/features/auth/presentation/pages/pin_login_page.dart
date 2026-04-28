@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/services/storage_service.dart';
 import '../../../../shared/widgets/pin_keyboard.dart';
+import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../controllers/pin_login_controller.dart';
 
 class PinLoginPage extends StatefulWidget {
   final LightSensorController? lightSensorController;
+  final CaregiverDriveController? caregiverDriveController;
 
-  const PinLoginPage({super.key, this.lightSensorController});
+  const PinLoginPage({
+    super.key,
+    this.lightSensorController,
+    this.caregiverDriveController,
+  });
 
   @override
   State<PinLoginPage> createState() => _PinLoginPageState();
@@ -58,6 +64,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
           MaterialPageRoute(
             builder: (_) => SettingsPage(
               lightSensorController: widget.lightSensorController,
+              caregiverDriveController: widget.caregiverDriveController,
             ),
           ),
         );
@@ -154,7 +161,7 @@ class _PinDisplay extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pinLength, (index) {
-        final bool isFilled = index < enteredPinLength;
+        final isFilled = index < enteredPinLength;
 
         return Container(
           width: 20,
