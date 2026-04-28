@@ -163,8 +163,10 @@ class CircularVideoRecorder {
   }
 
   Future<void> _trimBuffer(VideoLoopSettings settings) async {
-    while (retainedDuration.inSeconds > settings.bufferSeconds &&
-        _segments.isNotEmpty) {
+    final int maxSegments = (settings.bufferSeconds / settings.segmentSeconds)
+        .ceil();
+
+    while (_segments.length > maxSegments && _segments.isNotEmpty) {
       final oldest = _segments.removeFirst();
       await _storageService.deleteFileIfExists(oldest.path);
     }
