@@ -103,17 +103,36 @@ class SettingsController extends ChangeNotifier {
   }
 
   void setSendSms(bool value) {
-    _sendSms = value;
+    final bool smsIsForced = _sendGps || _recordAndSendVideo;
+
+    if (smsIsForced) {
+      _sendSms = true;
+    } else {
+      _sendSms = value;
+    }
+
     notifyListeners();
   }
 
+  bool get isSendSmsForced => _sendGps || _recordAndSendVideo;
+
   void setSendGps(bool value) {
     _sendGps = value;
+
+    if (_sendGps) {
+      _sendSms = true;
+    }
+
     notifyListeners();
   }
 
   void setRecordAndSendVideo(bool value) {
     _recordAndSendVideo = value;
+
+    if (_recordAndSendVideo) {
+      _sendSms = true;
+    }
+
     notifyListeners();
   }
 

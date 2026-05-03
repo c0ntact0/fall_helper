@@ -13,10 +13,14 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val phoneCallChannelName = "fall_helper/phone_call"
     private val videoConsolidationChannelName = "fall_helper/video_consolidation"
+    private val smsAlertChannelName = "fall_helper/sms_alert"
+
     private val requestCallPermissionCode = 1001
 
     private var pendingPhoneNumber: String? = null
     private var pendingResult: MethodChannel.Result? = null
+
+    private lateinit var smsAlertBridge: SmsAlertBridge
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -48,6 +52,15 @@ class MainActivity : FlutterActivity() {
             videoConsolidationChannelName
         ).setMethodCallHandler { call, result ->
             consolidationBridge.handle(call, result)
+        }
+
+        smsAlertBridge = SmsAlertBridge(this)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            smsAlertChannelName
+        ).setMethodCallHandler { call, result ->
+            smsAlertBridge.handle(call, result)
         }
     }
 
@@ -88,6 +101,10 @@ class MainActivity : FlutterActivity() {
         permissions: Array<String>,
         grantResults: IntArray
     ) {
+        if (smsAlertBridge.onRequestPermissionsResult(requestCode, grantResults)) {
+            return
+        }
+
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         if (requestCode != requestCallPermissionCode) return

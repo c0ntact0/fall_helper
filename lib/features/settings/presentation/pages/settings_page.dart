@@ -206,6 +206,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       recordAndSendVideo: _controller.recordAndSendVideo,
                       circularRecordingSeconds:
                           _controller.circularRecordingSeconds,
+                      isSendSmsForced: _controller.isSendSmsForced,
                       onMakePhoneCallChanged: _controller.setMakePhoneCall,
                       onSendSmsChanged: _controller.setSendSms,
                       onSendGpsChanged: _controller.setSendGps,

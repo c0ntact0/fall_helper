@@ -5,14 +5,17 @@ import '../../../../core/services/light_sensor_service.dart';
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/video_storage_service.dart';
+import '../../../../core/services/video_consolidation_service.dart';
+import '../../../../core/services/video_evidence_cleanup_service.dart';
+import '../../../../core/services/sms_alert_service.dart';
+import '../../../../core/services/location_service.dart';
+
 import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
 import '../../../settings/presentation/pages/settings_host_page.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
 import '../../../video_loop/services/circular_video_recorder.dart';
-import '../../../../core/services/video_consolidation_service.dart';
-import '../../../../core/services/video_evidence_cleanup_service.dart';
 import '../controllers/home_controller.dart';
 import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
@@ -35,6 +38,8 @@ class _HomePageState extends State<HomePage> {
   late final HomeController _controller;
   late final VideoConsolidationService _videoConsolidationService;
   late final VideoEvidenceCleanupService _videoEvidenceCleanupService;
+  late final SmsAlertService _smsAlertService;
+  late final LocationService _locationService;
 
   @override
   void initState() {
@@ -59,6 +64,10 @@ class _HomePageState extends State<HomePage> {
 
     _videoEvidenceCleanupService = VideoEvidenceCleanupService();
 
+    _smsAlertService = SmsAlertServiceImpl();
+
+    _locationService = LocationService();
+
     _controller = HomeController(
       storageService: StorageService(),
       phoneCallService: PhoneCallService(),
@@ -67,6 +76,8 @@ class _HomePageState extends State<HomePage> {
       caregiverDriveController: widget.caregiverDriveController,
       videoConsolidationService: _videoConsolidationService,
       videoEvidenceCleanupService: _videoEvidenceCleanupService,
+      smsAlertService: _smsAlertService,
+      locationService: _locationService,
     );
 
     _controller.addListener(_onControllerChanged);

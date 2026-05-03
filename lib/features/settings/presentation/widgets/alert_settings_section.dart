@@ -13,6 +13,7 @@ class AlertSettingsSection extends StatelessWidget {
   final ValueChanged<bool> onSendGpsChanged;
   final ValueChanged<bool> onRecordAndSendVideoChanged;
   final ValueChanged<int> onCircularRecordingSecondsChanged;
+  final bool isSendSmsForced;
 
   const AlertSettingsSection({
     super.key,
@@ -26,6 +27,7 @@ class AlertSettingsSection extends StatelessWidget {
     required this.onSendGpsChanged,
     required this.onRecordAndSendVideoChanged,
     required this.onCircularRecordingSecondsChanged,
+    required this.isSendSmsForced,
   });
 
   static const List<int> _allowedValues = [30, 60, 90, 120];
@@ -63,8 +65,11 @@ class AlertSettingsSection extends StatelessWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Enviar SMS'),
+            subtitle: isSendSmsForced
+                ? const Text('Ativado automaticamente por GPS ou vídeo')
+                : null,
             value: sendSms,
-            onChanged: onSendSmsChanged,
+            onChanged: isSendSmsForced ? null : onSendSmsChanged,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

@@ -4,12 +4,15 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/phone_call_service.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/services/video_consolidation_service.dart';
+import '../../../../core/services/video_evidence_cleanup_service.dart';
+import '../../../../core/services/sms_alert_service.dart';
+import '../../../../core/services/location_service.dart';
+
 import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../video_loop/domain/models/video_loop_settings.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
-import '../../../../core/services/video_consolidation_service.dart';
-import '../../../../core/services/video_evidence_cleanup_service.dart';
 
 class HomeController extends ChangeNotifier {
   HomeController({
@@ -20,10 +23,14 @@ class HomeController extends ChangeNotifier {
     required this.caregiverDriveController,
     required VideoConsolidationService videoConsolidationService,
     required VideoEvidenceCleanupService videoEvidenceCleanupService,
+    required SmsAlertService smsAlertService,
+    required LocationService locationService,
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService,
        _videoConsolidationService = videoConsolidationService,
-       _videoEvidenceCleanupService = videoEvidenceCleanupService;
+       _videoEvidenceCleanupService = videoEvidenceCleanupService,
+       _smsAlertService = smsAlertService,
+       _locationService = locationService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
@@ -32,6 +39,8 @@ class HomeController extends ChangeNotifier {
   final CaregiverDriveController caregiverDriveController;
   final VideoConsolidationService _videoConsolidationService;
   final VideoEvidenceCleanupService _videoEvidenceCleanupService;
+  final SmsAlertService _smsAlertService;
+  final LocationService _locationService;
 
   static const bool deleteLocalEvidenceAfterSuccessfulUpload = true;
 
@@ -166,71 +175,148 @@ class HomeController extends ChangeNotifier {
     }
   }
 
+  String _formatAlertTimestamp(DateTime dateTime) {
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+
+    return '${dateTime.year}/${twoDigits(dateTime.month)}/${twoDigits(dateTime.day)} '
+        '${twoDigits(dateTime.hour)}:${twoDigits(dateTime.minute)}:${twoDigits(dateTime.second)}';
+  }
+
   Future<void> simulateFallAlert() async {
+    bool shouldProcessVideo = false;
+    bool shouldMakePhoneCall = false;
+
     try {
       final alertSettings = await _storageService.loadAlertSettings();
+      final DateTime alertTime = DateTime.now();
 
-      if (!alertSettings.recordAndSendVideo) {
-        _errorMessage =
-            'Alerta simulado sem vídeo. O upload para Drive só acontece quando a gravação de vídeo está ativa.';
-        notifyListeners();
-        return;
+      final bool shouldSendSms =
+          alertSettings.sendSms ||
+          alertSettings.sendGps ||
+          alertSettings.recordAndSendVideo;
+
+      shouldProcessVideo = alertSettings.recordAndSendVideo;
+      shouldMakePhoneCall = alertSettings.makePhoneCall;
+
+      String smsMessage = 'Alerta de queda ${_formatAlertTimestamp(alertTime)}';
+
+      String? evidenceFolderPath;
+      bool videoUploadedSuccessfully = false;
+      bool smsSentSuccessfully = false;
+      bool callStartedSuccessfully = false;
+
+      if (alertSettings.sendGps) {
+        try {
+          final location = await _locationService.getCurrentLocation();
+          smsMessage += '\nLocalização: ${location.googleMapsLink}';
+        } catch (_) {
+          smsMessage += '\nLocalização: indisponível';
+        }
       }
 
-      final evidence = await videoLoopController
-          .preserveEvidenceForSimulatedFall();
+      if (shouldProcessVideo) {
+        try {
+          final evidence = await videoLoopController
+              .preserveEvidenceForSimulatedFall();
 
-      if (evidence == null) {
-        _errorMessage = 'Sem evidência de vídeo disponível.';
-        notifyListeners();
-        return;
+          if (evidence != null) {
+            evidenceFolderPath = evidence.folderPath;
+
+            await _videoConsolidationService.consolidateEvidenceFolder(
+              evidence.folderPath,
+            );
+
+            if (caregiverDriveController.session.hasLinkedAccount) {
+              final uploadResult = await caregiverDriveController
+                  .uploadEvidenceFolder(
+                    evidenceFolderPath: evidence.folderPath,
+                    alertTime: evidence.alertTime,
+                  );
+
+              if (uploadResult != null &&
+                  uploadResult.alertVideoWebViewLink != null &&
+                  uploadResult.alertVideoWebViewLink!.trim().isNotEmpty) {
+                videoUploadedSuccessfully = true;
+                smsMessage += '\nVídeo: ${uploadResult.alertVideoWebViewLink}';
+              } else {
+                _errorMessage =
+                    'Vídeo preservado e consolidado, mas falhou o upload para Google Drive.';
+                notifyListeners();
+              }
+            } else {
+              _errorMessage =
+                  'Vídeo preservado e consolidado, mas o Google Drive do cuidador não está ligado.';
+              notifyListeners();
+            }
+          } else {
+            _errorMessage = 'Sem evidência de vídeo disponível.';
+            notifyListeners();
+          }
+        } catch (error) {
+          _errorMessage = 'Falha no processamento do vídeo do alerta: $error';
+          notifyListeners();
+        }
       }
 
-      await _videoConsolidationService.consolidateEvidenceFolder(
-        evidence.folderPath,
-      );
-
-      if (!caregiverDriveController.session.hasLinkedAccount) {
-        _errorMessage =
-            'Vídeo preservado e consolidado, mas o Google Drive do cuidador não está ligado.';
-        debugPrint('Evidence folder: ${evidence.folderPath}');
-        notifyListeners();
-
-        await videoLoopController.restartLoopIfEnabled();
-        return;
+      if (shouldSendSms) {
+        await _smsAlertService.sendFallAlertSms(
+          phoneNumber: _caregiverPhoneNumber,
+          message: smsMessage,
+        );
+        smsSentSuccessfully = true;
       }
 
-      final uploadResult = await caregiverDriveController.uploadEvidenceFolder(
-        evidenceFolderPath: evidence.folderPath,
-        alertTime: evidence.alertTime,
-      );
-
-      if (uploadResult == null) {
-        _errorMessage =
-            'Vídeo preservado e consolidado, mas falhou o upload para Google Drive.';
-        debugPrint('Evidence folder: ${evidence.folderPath}');
-        notifyListeners();
-
-        await videoLoopController.restartLoopIfEnabled();
-        return;
+      if (shouldMakePhoneCall) {
+        try {
+          await _phoneCallService.callPhoneNumber(_caregiverPhoneNumber);
+          callStartedSuccessfully = true;
+        } catch (error) {
+          _errorMessage = 'Falha ao iniciar chamada do alerta: $error';
+          notifyListeners();
+        }
       }
 
-      if (deleteLocalEvidenceAfterSuccessfulUpload) {
+      if (deleteLocalEvidenceAfterSuccessfulUpload &&
+          videoUploadedSuccessfully &&
+          evidenceFolderPath != null) {
         await _videoEvidenceCleanupService.deleteEvidenceFolder(
-          evidence.folderPath,
+          evidenceFolderPath,
         );
       }
 
-      _errorMessage = 'Alerta simulado: vídeo enviado para Google Drive.';
-      debugPrint('Evidence folder: ${evidence.folderPath}');
-      notifyListeners();
+      if (shouldProcessVideo || shouldSendSms || shouldMakePhoneCall) {
+        final parts = <String>[];
 
-      await videoLoopController.restartLoopIfEnabled();
+        if (videoUploadedSuccessfully) {
+          parts.add('vídeo enviado para Google Drive');
+        }
+
+        if (smsSentSuccessfully) {
+          parts.add('SMS enviado');
+        }
+
+        if (callStartedSuccessfully) {
+          parts.add('chamada iniciada');
+        }
+
+        if (parts.isEmpty) {
+          _errorMessage = 'Alerta simulado processado.';
+        } else {
+          _errorMessage = 'Alerta simulado: ${parts.join(', ')}.';
+        }
+      } else {
+        _errorMessage = 'Alerta simulado processado.';
+      }
+
+      debugPrint('Evidence folder: $evidenceFolderPath');
+      notifyListeners();
     } catch (error) {
       _errorMessage = 'Falha ao processar alerta simulado: $error';
       notifyListeners();
-
-      await videoLoopController.restartLoopIfEnabled();
+    } finally {
+      if (shouldProcessVideo) {
+        await videoLoopController.restartLoopIfEnabled();
+      }
     }
   }
 
