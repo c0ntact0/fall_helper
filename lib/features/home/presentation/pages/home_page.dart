@@ -108,7 +108,15 @@ class _HomePageState extends State<HomePage> {
 
     final userFeatureSettings = await _storageService.loadUserFeatureSettings();
 
-    if (userFeatureSettings.fallDetectionEnabled) {
+    if (userFeatureSettings.showSimulateFallButton) {
+      if (_fallDetectionController.isEnabled) {
+        await _fallDetectionController.disable();
+      }
+
+      await _storageService.saveUserFeatureSettings(
+        userFeatureSettings.copyWith(fallDetectionEnabled: false),
+      );
+    } else if (userFeatureSettings.fallDetectionEnabled) {
       await _fallDetectionController.enable(
         onFallDetected: _controller.simulateFallAlert,
       );
@@ -152,6 +160,27 @@ class _HomePageState extends State<HomePage> {
 
     if (result == true) {
       await _controller.loadHomeSettings();
+
+      final userFeatureSettings = await _storageService
+          .loadUserFeatureSettings();
+
+      if (userFeatureSettings.showSimulateFallButton) {
+        if (_fallDetectionController.isEnabled) {
+          await _fallDetectionController.disable();
+        }
+
+        await _storageService.saveUserFeatureSettings(
+          userFeatureSettings.copyWith(fallDetectionEnabled: false),
+        );
+      } else if (userFeatureSettings.fallDetectionEnabled &&
+          !_fallDetectionController.isEnabled) {
+        await _fallDetectionController.enable(
+          onFallDetected: _controller.simulateFallAlert,
+        );
+      } else if (!userFeatureSettings.fallDetectionEnabled &&
+          _fallDetectionController.isEnabled) {
+        await _fallDetectionController.disable();
+      }
 
       final lux = _lightSensorController.currentLux;
       if (lux != null) {
@@ -285,6 +314,10 @@ class _HomePageState extends State<HomePage> {
                 if (_controller.showFallDetectionButton) ...[
                   FallDetectionCard(
                     isActive: _fallDetectionController.isEnabled,
+                    isDisabled: _controller.showSimulateFallButton,
+                    disabledReason: _controller.showSimulateFallButton
+                        ? 'Desativada enquanto o botão de simulação estiver visível'
+                        : null,
                     onTap: _toggleFallDetection,
                   ),
                 ],

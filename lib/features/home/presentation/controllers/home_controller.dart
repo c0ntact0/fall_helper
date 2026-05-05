@@ -186,6 +186,11 @@ class HomeController extends ChangeNotifier {
         '${twoDigits(dateTime.hour)}:${twoDigits(dateTime.minute)}:${twoDigits(dateTime.second)}';
   }
 
+  String _buildAlertMessage(String message) {
+    final prefix = _showSimulateFallButton ? 'Alerta de queda simulado' : 'Alerta de queda';
+    return '$prefix: $message';
+  }
+
   Future<void> simulateFallAlert() async {
     bool shouldProcessVideo = false;
     bool shouldMakePhoneCall = false;
@@ -202,7 +207,7 @@ class HomeController extends ChangeNotifier {
       shouldProcessVideo = alertSettings.recordAndSendVideo;
       shouldMakePhoneCall = alertSettings.makePhoneCall;
 
-      String smsMessage = 'Alerta de queda ${_formatAlertTimestamp(alertTime)}';
+      String smsMessage = _buildAlertMessage(_formatAlertTimestamp(alertTime));
 
       String? evidenceFolderPath;
       bool videoUploadedSuccessfully = false;
@@ -304,18 +309,18 @@ class HomeController extends ChangeNotifier {
         }
 
         if (parts.isEmpty) {
-          _errorMessage = 'Alerta simulado processado.';
+          _errorMessage = _buildAlertMessage('processado.');
         } else {
-          _errorMessage = 'Alerta simulado: ${parts.join(', ')}.';
+          _errorMessage = _buildAlertMessage('${parts.join(', ')}.');
         }
       } else {
-        _errorMessage = 'Alerta simulado processado.';
+        _errorMessage = _buildAlertMessage('processado.');
       }
 
-      debugPrint('Evidence folder: $evidenceFolderPath');
+      //debugPrint('Evidence folder: $evidenceFolderPath');
       notifyListeners();
     } catch (error) {
-      _errorMessage = 'Falha ao processar alerta simulado: $error';
+      _errorMessage = _buildAlertMessage('Falha ao processar - $error');
       notifyListeners();
     } finally {
       if (shouldProcessVideo) {
