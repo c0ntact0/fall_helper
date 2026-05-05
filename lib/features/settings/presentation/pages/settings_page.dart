@@ -220,6 +220,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       showFallDetectionButton:
                           _controller.showFallDetectionButton,
                       showPanicButton: _controller.showPanicButton,
+                      showSimulateFallButton:
+                          _controller.showSimulateFallButton,
                       enableAutomaticFlashlightMode:
                           _controller.enableAutomaticFlashlightMode,
                       flashlightDarknessThresholdLux:
@@ -228,6 +230,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       onShowFallDetectionButtonChanged:
                           _controller.setShowFallDetectionButton,
                       onShowPanicButtonChanged: _controller.setShowPanicButton,
+                      onShowSimulateFallButtonChanged:
+                          _controller.setShowSimulateFallButton,
                       onEnableAutomaticFlashlightModeChanged:
                           _controller.setEnableAutomaticFlashlightMode,
                       onFlashlightDarknessThresholdLuxChanged:

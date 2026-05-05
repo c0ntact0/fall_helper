@@ -22,6 +22,9 @@ class StorageService {
       'enable_automatic_flashlight_mode';
   static const _flashlightDarknessThresholdLuxKey =
       'flashlight_darkness_threshold_lux';
+  static const _showSimulateFallButtonKey = 'show_simulate_fall_button';
+
+  static const _fallDetectionEnabledKey = 'fall_detection_enabled';
 
   Future<Caregiver> loadCaregiver() async {
     final prefs = await SharedPreferences.getInstance();
@@ -76,12 +79,16 @@ class StorageService {
       showFallDetectionButton:
           prefs.getBool(_showFallDetectionButtonKey) ?? true,
       showPanicButton: prefs.getBool(_showPanicButtonKey) ?? true,
+      showSimulateFallButton:
+          prefs.getBool(_showSimulateFallButtonKey) ?? false,
       enableAutomaticFlashlightMode:
           prefs.getBool(_enableAutomaticFlashlightModeKey) ?? false,
       flashlightDarknessThresholdLux:
           prefs.getDouble(_flashlightDarknessThresholdLuxKey) ?? 20.0,
+      fallDetectionEnabled: prefs.getBool(_fallDetectionEnabledKey) ?? false,
     );
   }
+
 
   Future<void> saveUserFeatureSettings(UserFeatureSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
@@ -92,12 +99,20 @@ class StorageService {
     );
     await prefs.setBool(_showPanicButtonKey, settings.showPanicButton);
     await prefs.setBool(
+      _showSimulateFallButtonKey,
+      settings.showSimulateFallButton,
+    );
+    await prefs.setBool(
       _enableAutomaticFlashlightModeKey,
       settings.enableAutomaticFlashlightMode,
     );
     await prefs.setDouble(
       _flashlightDarknessThresholdLuxKey,
       settings.flashlightDarknessThresholdLux,
+    );
+    await prefs.setBool(
+      _fallDetectionEnabledKey,
+      settings.fallDetectionEnabled,
     );
   }
 }

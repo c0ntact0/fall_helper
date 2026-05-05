@@ -54,6 +54,9 @@ class SettingsController extends ChangeNotifier {
   bool _enableAutomaticFlashlightMode = false;
   bool get enableAutomaticFlashlightMode => _enableAutomaticFlashlightMode;
 
+  bool _showSimulateFallButton = false;
+  bool get showSimulateFallButton => _showSimulateFallButton;  
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -84,6 +87,7 @@ class SettingsController extends ChangeNotifier {
 
     _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
     _showPanicButton = userFeatureSettings.showPanicButton;
+    _showSimulateFallButton = userFeatureSettings.showSimulateFallButton;
     _enableAutomaticFlashlightMode =
         userFeatureSettings.enableAutomaticFlashlightMode;
     _flashlightDarknessThresholdLux =
@@ -151,6 +155,11 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setShowSimulateFallButton(bool value) {
+    _showSimulateFallButton = value;
+    notifyListeners();
+  }
+
   void setEnableAutomaticFlashlightMode(bool value) {
     _enableAutomaticFlashlightMode = value;
     notifyListeners();
@@ -194,11 +203,16 @@ class SettingsController extends ChangeNotifier {
       circularRecordingSeconds: _circularRecordingSeconds,
     );
 
+    final currentUserFeatureSettings = await _storageService
+        .loadUserFeatureSettings();
+
     final userFeatureSettings = UserFeatureSettings(
       showFallDetectionButton: _showFallDetectionButton,
       showPanicButton: _showPanicButton,
       enableAutomaticFlashlightMode: _enableAutomaticFlashlightMode,
       flashlightDarknessThresholdLux: _flashlightDarknessThresholdLux,
+      showSimulateFallButton: _showSimulateFallButton,
+      fallDetectionEnabled: currentUserFeatureSettings.fallDetectionEnabled,
     );
 
     try {

@@ -62,6 +62,9 @@ class HomeController extends ChangeNotifier {
   bool _showPanicButton = true;
   bool get showPanicButton => _showPanicButton;
 
+  bool _showSimulateFallButton = false;
+  bool get showSimulateFallButton => _showSimulateFallButton;
+
   String _caregiverName = 'Cuidador';
   String get caregiverName => _caregiverName;
 
@@ -82,7 +85,8 @@ class HomeController extends ChangeNotifier {
     _caregiverPhoneNumber = caregiver.phoneNumber;
     _showFallDetectionButton = userFeatureSettings.showFallDetectionButton;
     _showPanicButton = userFeatureSettings.showPanicButton;
-
+    _showSimulateFallButton = userFeatureSettings.showSimulateFallButton;
+    
     await flashlightController.initialize();
     await flashlightController.setDarknessThresholdLux(
       userFeatureSettings.flashlightDarknessThresholdLux,

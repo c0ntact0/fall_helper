@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/services/flashlight_service.dart';
 import '../../../../core/services/light_sensor_service.dart';
+import '../../../../core/services/location_service.dart';
 import '../../../../core/services/phone_call_service.dart';
+import '../../../../core/services/sms_alert_service.dart';
 import '../../../../core/services/storage_service.dart';
-import '../../../../core/services/video_storage_service.dart';
 import '../../../../core/services/video_consolidation_service.dart';
 import '../../../../core/services/video_evidence_cleanup_service.dart';
-import '../../../../core/services/sms_alert_service.dart';
-import '../../../../core/services/location_service.dart';
-
+import '../../../../core/services/video_storage_service.dart';
 import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
+import '../../../fall_detection/presentation/controllers/fall_detection_controller.dart';
+import '../../../fall_detection/services/fall_detection_service.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
 import '../../../light_sensor/presentation/controllers/light_sensor_controller.dart';
 import '../../../settings/presentation/pages/settings_host_page.dart';
@@ -31,19 +32,23 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late final StorageService _storageService;
   late final FlashlightController _flashlightController;
   late final LightSensorController _lightSensorController;
+  late final FallDetectionController _fallDetectionController;
   late final VideoStorageService _videoStorageService;
   late final VideoLoopController _videoLoopController;
-  late final HomeController _controller;
   late final VideoConsolidationService _videoConsolidationService;
   late final VideoEvidenceCleanupService _videoEvidenceCleanupService;
   late final SmsAlertService _smsAlertService;
   late final LocationService _locationService;
+  late final HomeController _controller;
 
   @override
   void initState() {
     super.initState();
+
+    _storageService = StorageService();
 
     _flashlightController = FlashlightController(
       flashlightService: FlashlightService(),
@@ -51,6 +56,10 @@ class _HomePageState extends State<HomePage> {
 
     _lightSensorController = LightSensorController(
       lightSensorService: LightSensorService(),
+    );
+
+    _fallDetectionController = FallDetectionController(
+      fallDetectionService: FallDetectionService(),
     );
 
     _videoStorageService = VideoStorageService();
@@ -61,15 +70,12 @@ class _HomePageState extends State<HomePage> {
     );
 
     _videoConsolidationService = VideoConsolidationService();
-
     _videoEvidenceCleanupService = VideoEvidenceCleanupService();
-
     _smsAlertService = SmsAlertServiceImpl();
-
     _locationService = LocationService();
 
     _controller = HomeController(
-      storageService: StorageService(),
+      storageService: _storageService,
       phoneCallService: PhoneCallService(),
       flashlightController: _flashlightController,
       videoLoopController: _videoLoopController,
@@ -83,9 +89,9 @@ class _HomePageState extends State<HomePage> {
     _controller.addListener(_onControllerChanged);
     _flashlightController.addListener(_onFlashlightChanged);
     _lightSensorController.addListener(_onLightSensorChanged);
+    _fallDetectionController.addListener(_onFallDetectionChanged);
     _videoLoopController.addListener(_onVideoLoopChanged);
     widget.caregiverDriveController.addListener(_onDriveChanged);
-
 
     _initializePage();
   }
@@ -99,22 +105,59 @@ class _HomePageState extends State<HomePage> {
         _flashlightController.updateLux(lux);
       },
     );
+
+    final userFeatureSettings = await _storageService.loadUserFeatureSettings();
+
+    if (userFeatureSettings.fallDetectionEnabled) {
+      await _fallDetectionController.enable(
+        onFallDetected: _controller.simulateFallAlert,
+      );
+    }
   }
 
-  @override
-  void dispose() {
-    _controller.removeListener(_onControllerChanged);
-    _flashlightController.removeListener(_onFlashlightChanged);
-    _lightSensorController.removeListener(_onLightSensorChanged);
-    _videoLoopController.removeListener(_onVideoLoopChanged);
-    widget.caregiverDriveController.removeListener(_onDriveChanged);
+  Future<void> _toggleFallDetection() async {
+    final currentSettings = await _storageService.loadUserFeatureSettings();
 
-    _controller.dispose();
-    _flashlightController.dispose();
-    _lightSensorController.dispose();
-    _videoLoopController.dispose();
+    if (_fallDetectionController.isEnabled) {
+      await _fallDetectionController.disable();
 
-    super.dispose();
+      if (!_fallDetectionController.isEnabled) {
+        await _storageService.saveUserFeatureSettings(
+          currentSettings.copyWith(fallDetectionEnabled: false),
+        );
+      }
+    } else {
+      await _fallDetectionController.enable(
+        onFallDetected: _controller.simulateFallAlert,
+      );
+
+      if (_fallDetectionController.isEnabled) {
+        await _storageService.saveUserFeatureSettings(
+          currentSettings.copyWith(fallDetectionEnabled: true),
+        );
+      }
+    }
+  }
+
+  Future<void> _openSettings() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsHostPage(
+          lightSensorController: _lightSensorController,
+          caregiverDriveController: widget.caregiverDriveController,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await _controller.loadHomeSettings();
+
+      final lux = _lightSensorController.currentLux;
+      if (lux != null) {
+        await _flashlightController.updateLux(lux);
+      }
+    }
   }
 
   void _onControllerChanged() {
@@ -150,6 +193,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _onFallDetectionChanged() {
+    final errorMessage = _fallDetectionController.errorMessage;
+
+    if (errorMessage != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      _fallDetectionController.clearError();
+    }
+  }
+
   void _onVideoLoopChanged() {
     final errorMessage = _videoLoopController.errorMessage;
 
@@ -172,25 +226,23 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _openSettings() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SettingsHostPage(
-          lightSensorController: _lightSensorController,
-          caregiverDriveController: widget.caregiverDriveController,
-        ),
-      ),
-    );
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    _flashlightController.removeListener(_onFlashlightChanged);
+    _lightSensorController.removeListener(_onLightSensorChanged);
+    _fallDetectionController.removeListener(_onFallDetectionChanged);
+    _videoLoopController.removeListener(_onVideoLoopChanged);
+    widget.caregiverDriveController.removeListener(_onDriveChanged);
 
-    if (result == true) {
-      await _controller.loadHomeSettings();
+    _controller.dispose();
+    _flashlightController.dispose();
+    _lightSensorController.dispose();
+    _fallDetectionController.disposeAsync();
+    _fallDetectionController.dispose();
+    _videoLoopController.dispose();
 
-      final lux = _lightSensorController.currentLux;
-      if (lux != null) {
-        await _flashlightController.updateLux(lux);
-      }
-    }
+    super.dispose();
   }
 
   @override
@@ -200,6 +252,7 @@ class _HomePageState extends State<HomePage> {
         _controller,
         _flashlightController,
         _lightSensorController,
+        _fallDetectionController,
         _videoLoopController,
         widget.caregiverDriveController,
       ]),
@@ -231,11 +284,22 @@ class _HomePageState extends State<HomePage> {
               children: [
                 if (_controller.showFallDetectionButton) ...[
                   FallDetectionCard(
-                    isActive: _controller.isFallDetectionActive,
-                    onTap: _controller.simulateFallAlert,
+                    isActive: _fallDetectionController.isEnabled,
+                    onTap: _toggleFallDetection,
                   ),
-                  const SizedBox(height: 24),
                 ],
+                if (_controller.showSimulateFallButton) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _controller.simulateFallAlert,
+                      icon: const Icon(Icons.warning_amber_rounded),
+                      label: const Text('Simular queda (teste)'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
                 FlashlightCard(
                   isActive: _flashlightController.isOn,
                   isAvailable: _flashlightController.isAvailable,

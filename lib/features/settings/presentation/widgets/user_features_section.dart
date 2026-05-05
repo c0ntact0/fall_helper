@@ -12,6 +12,8 @@ class UserFeaturesSection extends StatelessWidget {
   final ValueChanged<bool> onShowPanicButtonChanged;
   final ValueChanged<bool> onEnableAutomaticFlashlightModeChanged;
   final ValueChanged<double> onFlashlightDarknessThresholdLuxChanged;
+  final bool showSimulateFallButton;
+  final ValueChanged<bool> onShowSimulateFallButtonChanged;
 
   const UserFeaturesSection({
     super.key,
@@ -24,6 +26,8 @@ class UserFeaturesSection extends StatelessWidget {
     required this.onShowPanicButtonChanged,
     required this.onEnableAutomaticFlashlightModeChanged,
     required this.onFlashlightDarknessThresholdLuxChanged,
+    required this.showSimulateFallButton,
+    required this.onShowSimulateFallButtonChanged,
   });
 
   @override
@@ -74,6 +78,12 @@ class UserFeaturesSection extends StatelessWidget {
               divisions: 99,
               label: '${flashlightDarknessThresholdLux.toStringAsFixed(0)} lux',
               onChanged: onFlashlightDarknessThresholdLuxChanged,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Mostrar botão simular queda'),
+              value: showSimulateFallButton,
+              onChanged: onShowSimulateFallButtonChanged,
             ),
           ],
         ],
