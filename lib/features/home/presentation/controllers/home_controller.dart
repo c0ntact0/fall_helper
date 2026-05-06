@@ -8,6 +8,7 @@ import '../../../../core/services/video_consolidation_service.dart';
 import '../../../../core/services/video_evidence_cleanup_service.dart';
 import '../../../../core/services/sms_alert_service.dart';
 import '../../../../core/services/location_service.dart';
+import '../../../../core/services/voice_alert_service.dart';
 
 import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../flashlight/presentation/controllers/flashlight_controller.dart';
@@ -25,12 +26,14 @@ class HomeController extends ChangeNotifier {
     required VideoEvidenceCleanupService videoEvidenceCleanupService,
     required SmsAlertService smsAlertService,
     required LocationService locationService,
+    required VoiceAlertService voiceAlertService,
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService,
        _videoConsolidationService = videoConsolidationService,
        _videoEvidenceCleanupService = videoEvidenceCleanupService,
        _smsAlertService = smsAlertService,
-       _locationService = locationService;
+       _locationService = locationService,
+       _voiceAlertService = voiceAlertService;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
@@ -41,6 +44,7 @@ class HomeController extends ChangeNotifier {
   final VideoEvidenceCleanupService _videoEvidenceCleanupService;
   final SmsAlertService _smsAlertService;
   final LocationService _locationService;
+  final VoiceAlertService _voiceAlertService;
 
   static const bool deleteLocalEvidenceAfterSuccessfulUpload = true;
 
@@ -144,6 +148,8 @@ class HomeController extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    _announcePanicCall();
+
     const totalDuration = Duration(seconds: 5);
     const stepDuration = Duration(milliseconds: 100);
 
@@ -171,11 +177,20 @@ class HomeController extends ChangeNotifier {
     try {
       await _phoneCallService.callPhoneNumber(_caregiverPhoneNumber);
     } catch (error) {
+      await _voiceAlertService.speakCallingCaregiverFailed();
       _errorMessage = 'Erro ao iniciar chamada: $error';
     } finally {
       _isPanicInProgress = false;
       _panicProgress = 0.0;
       notifyListeners();
+    }
+  }
+
+  Future<void> _announcePanicCall() async {
+    try {
+      await _voiceAlertService.speakCallingCaregiver();
+    } catch (_) {
+      // Ignora falha de TTS para não bloquear o fluxo de pânico.
     }
   }
 
@@ -315,6 +330,12 @@ class HomeController extends ChangeNotifier {
         }
       } else {
         _errorMessage = _buildAlertMessage('processado.');
+      }
+
+      if (videoUploadedSuccessfully ||
+          smsSentSuccessfully ||
+          callStartedSuccessfully) {
+        await _voiceAlertService.speakAlertSentToCaregiver();
       }
 
       //debugPrint('Evidence folder: $evidenceFolderPath');

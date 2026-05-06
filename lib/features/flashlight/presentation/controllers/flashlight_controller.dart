@@ -3,12 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/flashlight_service.dart';
+import '../../../../core/services/voice_alert_service.dart';
 
 class FlashlightController extends ChangeNotifier {
-  FlashlightController({required FlashlightService flashlightService})
-    : _flashlightService = flashlightService;
+  FlashlightController({
+    required FlashlightService flashlightService,
+    required VoiceAlertService voiceAlertService,
+    }) :  _flashlightService = flashlightService,
+          _voiceAlertService = voiceAlertService;
 
   final FlashlightService _flashlightService;
+  final VoiceAlertService _voiceAlertService;
 
   bool _isAvailable = false;
   bool get isAvailable => _isAvailable;
@@ -132,8 +137,10 @@ class FlashlightController extends ChangeNotifier {
 
       if (nextState) {
         await _flashlightService.enable();
+        await _voiceAlertService.speakFlashlightOn();
       } else {
         await _flashlightService.disable();
+        await _voiceAlertService.speakFlashlightOff();
       }
 
       _isOn = nextState;
@@ -247,9 +254,11 @@ class FlashlightController extends ChangeNotifier {
       if (shouldTurnOn) {
         await _flashlightService.enable();
         _isOn = true;
+        await _voiceAlertService.speakFlashlightOn();
       } else {
         await _flashlightService.disable();
         _isOn = false;
+        await _voiceAlertService.speakFlashlightOff();
       }
     } catch (_) {
       _errorMessage = 'Não foi possível atualizar a lanterna.';

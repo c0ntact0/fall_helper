@@ -9,6 +9,7 @@ import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/video_consolidation_service.dart';
 import '../../../../core/services/video_evidence_cleanup_service.dart';
 import '../../../../core/services/video_storage_service.dart';
+import '../../../../core/services/voice_alert_service.dart';
 import '../../../drive_backup/presentation/controllers/caregiver_drive_controller.dart';
 import '../../../fall_detection/presentation/controllers/fall_detection_controller.dart';
 import '../../../fall_detection/services/fall_detection_service.dart';
@@ -43,15 +44,19 @@ class _HomePageState extends State<HomePage> {
   late final SmsAlertService _smsAlertService;
   late final LocationService _locationService;
   late final HomeController _controller;
+  late final VoiceAlertService _voiceAlertService;
 
   @override
   void initState() {
     super.initState();
 
     _storageService = StorageService();
+    
+    _voiceAlertService = VoiceAlertService();
 
     _flashlightController = FlashlightController(
       flashlightService: FlashlightService(),
+      voiceAlertService: _voiceAlertService,
     );
 
     _lightSensorController = LightSensorController(
@@ -84,6 +89,7 @@ class _HomePageState extends State<HomePage> {
       videoEvidenceCleanupService: _videoEvidenceCleanupService,
       smsAlertService: _smsAlertService,
       locationService: _locationService,
+      voiceAlertService: _voiceAlertService,
     );
 
     _controller.addListener(_onControllerChanged);
