@@ -332,9 +332,8 @@ class HomeController extends ChangeNotifier {
         _errorMessage = _buildAlertMessage('processado.');
       }
 
-      if (videoUploadedSuccessfully ||
-          smsSentSuccessfully ||
-          callStartedSuccessfully) {
+      if (!shouldMakePhoneCall && (videoUploadedSuccessfully ||
+          smsSentSuccessfully)) {
         await _voiceAlertService.speakAlertSentToCaregiver();
       }
 
