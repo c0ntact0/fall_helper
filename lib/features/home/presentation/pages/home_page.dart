@@ -23,6 +23,9 @@ import '../widgets/fall_detection_card.dart';
 import '../widgets/flashlight_card.dart';
 import '../widgets/panic_card.dart';
 
+import '../../../../core/logging/app_logger.dart';
+import '../../../../core/logging/log_storage_service.dart';
+
 class HomePage extends StatefulWidget {
   final CaregiverDriveController caregiverDriveController;
 
@@ -45,10 +48,14 @@ class _HomePageState extends State<HomePage> {
   late final LocationService _locationService;
   late final HomeController _controller;
   late final VoiceAlertService _voiceAlertService;
+  late final AppLogger _logger;
 
   @override
   void initState() {
     super.initState();
+
+    _logger = AppLogger(storageService: LogStorageService());
+    _logger.initialize();
 
     _storageService = StorageService();
     
@@ -57,6 +64,7 @@ class _HomePageState extends State<HomePage> {
     _flashlightController = FlashlightController(
       flashlightService: FlashlightService(),
       voiceAlertService: _voiceAlertService,
+      logger: _logger,
     );
 
     _lightSensorController = LightSensorController(
@@ -79,6 +87,7 @@ class _HomePageState extends State<HomePage> {
     _smsAlertService = SmsAlertServiceImpl();
     _locationService = LocationService();
 
+
     _controller = HomeController(
       storageService: _storageService,
       phoneCallService: PhoneCallService(),
@@ -90,6 +99,7 @@ class _HomePageState extends State<HomePage> {
       smsAlertService: _smsAlertService,
       locationService: _locationService,
       voiceAlertService: _voiceAlertService,
+      logger: _logger,
     );
 
     _controller.addListener(_onControllerChanged);
@@ -133,6 +143,7 @@ class _HomePageState extends State<HomePage> {
     final currentSettings = await _storageService.loadUserFeatureSettings();
 
     if (_fallDetectionController.isEnabled) {
+      
       await _fallDetectionController.disable();
 
       if (!_fallDetectionController.isEnabled) {
@@ -160,6 +171,7 @@ class _HomePageState extends State<HomePage> {
         builder: (_) => SettingsHostPage(
           lightSensorController: _lightSensorController,
           caregiverDriveController: widget.caregiverDriveController,
+          logger: _logger,
         ),
       ),
     );

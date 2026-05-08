@@ -5,9 +5,15 @@ import '../../domain/models/alert_settings.dart';
 import '../../domain/models/caregiver.dart';
 import '../../domain/models/user_feature_settings.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class SettingsController extends ChangeNotifier {
-  SettingsController({required StorageService storageService})
-    : _storageService = storageService;
+  SettingsController({
+    required StorageService storageService,
+    required AppLogger logger,
+  }): 
+  _storageService = storageService,
+  _logger = logger;
 
   final StorageService _storageService;
 
@@ -17,6 +23,7 @@ class SettingsController extends ChangeNotifier {
   late final TextEditingController caregiverEmailController;
   late final TextEditingController caregiverPhoneController;
   late final TextEditingController pinController;
+  final AppLogger _logger;
 
   double _flashlightDarknessThresholdLux = 20.0;
   double get flashlightDarknessThresholdLux => _flashlightDarknessThresholdLux;
@@ -67,6 +74,18 @@ class SettingsController extends ChangeNotifier {
     pinController = TextEditingController();
 
     await loadSettings();
+    await _logger.logSystemEvent(
+      module: 'settings_controller',
+      action: 'settings_loaded',
+      details:
+          'showFallDetectionButton=$_showFallDetectionButton;'
+          'showPanicButton=$_showPanicButton;'
+          'showSimulateFallButton=$_showSimulateFallButton;'
+          'sendSms=$_sendSms;'
+          'sendGps=$_sendGps;'
+          'recordAndSendVideo=$_recordAndSendVideo;'
+          'makePhoneCall=$_makePhoneCall',
+    );
   }
 
   Future<void> loadSettings() async {
@@ -104,6 +123,11 @@ class SettingsController extends ChangeNotifier {
   void setMakePhoneCall(bool value) {
     _makePhoneCall = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_make_phone_call',
+      details: 'value=$value',
+    );
   }
 
   void setSendSms(bool value) {
@@ -116,6 +140,11 @@ class SettingsController extends ChangeNotifier {
     }
 
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_send_sms',
+      details: 'value=$_sendSms;forced=$smsIsForced',
+    );
   }
 
   bool get isSendSmsForced => _sendGps || _recordAndSendVideo;
@@ -128,6 +157,11 @@ class SettingsController extends ChangeNotifier {
     }
 
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_send_gps',
+      details: 'value=$value;sendSms=$_sendSms',
+    );
   }
 
   void setRecordAndSendVideo(bool value) {
@@ -138,36 +172,71 @@ class SettingsController extends ChangeNotifier {
     }
 
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_record_and_send_video',
+      details: 'value=$value;sendSms=$_sendSms',
+    );
   }
 
   void setCircularRecordingSeconds(int value) {
     _circularRecordingSeconds = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'change_circular_recording_seconds',
+      details: 'value=$_circularRecordingSeconds',
+    );
   }
 
   void setShowFallDetectionButton(bool value) {
     _showFallDetectionButton = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_show_fall_detection_button',
+      details: 'value=$value',
+    );
   }
 
   void setShowPanicButton(bool value) {
     _showPanicButton = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_show_panic_button',
+      details: 'value=$value',
+    );
   }
 
   void setShowSimulateFallButton(bool value) {
     _showSimulateFallButton = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_show_simulate_fall_button',
+      details: 'value=$value',
+    );
   }
 
   void setEnableAutomaticFlashlightMode(bool value) {
     _enableAutomaticFlashlightMode = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'toggle_automatic_flashlight_mode',
+      details: 'value=$value',
+    );
   }
 
   void setFlashlightDarknessThresholdLux(double value) {
     _flashlightDarknessThresholdLux = value;
     notifyListeners();
+    _logger.logUserAction(
+      module: 'settings_controller',
+      action: 'change_flashlight_darkness_threshold_lux',
+      details: 'value=$_flashlightDarknessThresholdLux',
+    );
   }
 
   void setCurrentLux(int? value) {
@@ -182,6 +251,10 @@ class SettingsController extends ChangeNotifier {
     if (!isValid) {
       _errorMessage = 'Corrige os campos antes de sair.';
       notifyListeners();
+      await _logger.logError(
+        module: 'settings_controller',
+        action: 'save_settings_validation_failed',
+      );
       return false;
     }
 
@@ -219,7 +292,34 @@ class SettingsController extends ChangeNotifier {
       await _storageService.saveCaregiver(caregiver);
       await _storageService.saveAlertSettings(alertSettings);
       await _storageService.saveUserFeatureSettings(userFeatureSettings);
+      await _logger.logSystemEvent(
+        module: 'settings_controller',
+        action: 'settings_saved',
+        details:
+            'makePhoneCall=$_makePhoneCall;'
+            'sendSms=$_sendSms;'
+            'sendGps=$_sendGps;'
+            'recordAndSendVideo=$_recordAndSendVideo;'
+            'circularRecordingSeconds=$_circularRecordingSeconds;'
+            'showFallDetectionButton=$_showFallDetectionButton;'
+            'showPanicButton=$_showPanicButton;'
+            'showSimulateFallButton=$_showSimulateFallButton;'
+            'automaticFlashlight=$_enableAutomaticFlashlightMode;'
+            'flashlightLux=$_flashlightDarknessThresholdLux',
+      );
       return true;
+    } catch (error) {
+    _errorMessage = 'Não foi possível guardar as configurações.';
+    _isSaving = false;
+    notifyListeners();
+
+    await _logger.logError(
+      module: 'settings_controller',
+      action: 'settings_save_failed',
+      details: error.toString(),
+    );
+
+    return false;
     } finally {
       _isSaving = false;
       notifyListeners();

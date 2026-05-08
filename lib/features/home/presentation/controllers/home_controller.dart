@@ -15,6 +15,8 @@ import '../../../flashlight/presentation/controllers/flashlight_controller.dart'
 import '../../../video_loop/domain/models/video_loop_settings.dart';
 import '../../../video_loop/presentation/controllers/video_loop_controller.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class HomeController extends ChangeNotifier {
   HomeController({
     required StorageService storageService,
@@ -27,13 +29,15 @@ class HomeController extends ChangeNotifier {
     required SmsAlertService smsAlertService,
     required LocationService locationService,
     required VoiceAlertService voiceAlertService,
+    required AppLogger logger,
   }) : _storageService = storageService,
        _phoneCallService = phoneCallService,
        _videoConsolidationService = videoConsolidationService,
        _videoEvidenceCleanupService = videoEvidenceCleanupService,
        _smsAlertService = smsAlertService,
        _locationService = locationService,
-       _voiceAlertService = voiceAlertService;
+       _voiceAlertService = voiceAlertService,
+       _logger = logger;
 
   final StorageService _storageService;
   final PhoneCallService _phoneCallService;
@@ -45,6 +49,7 @@ class HomeController extends ChangeNotifier {
   final SmsAlertService _smsAlertService;
   final LocationService _locationService;
   final VoiceAlertService _voiceAlertService;
+  final AppLogger _logger;
 
   static const bool deleteLocalEvidenceAfterSuccessfulUpload = true;
 
@@ -123,6 +128,18 @@ class HomeController extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+    await _logger.logSystemEvent(
+      module: 'home_controller',
+      action: 'home_settings_loaded',
+      details:
+          'showFallDetectionButton=$_showFallDetectionButton;'
+          'showPanicButton=$_showPanicButton;'
+          'showSimulateFallButton=$_showSimulateFallButton;'
+          'recordAndSendVideo=${alertSettings.recordAndSendVideo};'
+          'sendSms=${alertSettings.sendSms};'
+          'sendGps=${alertSettings.sendGps};'
+          'makePhoneCall=${alertSettings.makePhoneCall}',
+    );
   }
 
   void clearError() {
@@ -140,8 +157,16 @@ class HomeController extends ChangeNotifier {
     if (_caregiverPhoneNumber.trim().isEmpty) {
       _errorMessage = 'Configure o telefone do cuidador primeiro.';
       notifyListeners();
+
+      _logger.logError(
+        module: 'home_controller',
+        action: 'panic_flow_blocked',
+        details: 'reason=missing_caregiver_phone',
+      );
       return;
     }
+
+    _logger.logUserAction(module: 'home_controller', action: 'panic_button_pressed');
 
     _isPanicInProgress = true;
     _panicProgress = 0.0;
@@ -168,6 +193,12 @@ class HomeController extends ChangeNotifier {
         timer.cancel();
         _panicProgress = 1.0;
         notifyListeners();
+
+        _logger.logSystemEvent(
+          module: 'home_controller',
+          action: 'panic_countdown_completed',
+        );
+
         _performPanicCall();
       }
     });
@@ -176,9 +207,19 @@ class HomeController extends ChangeNotifier {
   Future<void> _performPanicCall() async {
     try {
       await _phoneCallService.callPhoneNumber(_caregiverPhoneNumber);
+
+      await _logger.logSystemEvent(
+        module: 'home_controller',
+        action: 'panic_call_started',
+      );
     } catch (error) {
-      await _voiceAlertService.speakCallingCaregiverFailed();
       _errorMessage = 'Erro ao iniciar chamada: $error';
+
+      await _logger.logError(
+        module: 'home_controller',
+        action: 'panic_call_failed',
+        details: error.toString(),
+      );
     } finally {
       _isPanicInProgress = false;
       _panicProgress = 0.0;
@@ -222,7 +263,19 @@ class HomeController extends ChangeNotifier {
       shouldProcessVideo = alertSettings.recordAndSendVideo;
       shouldMakePhoneCall = alertSettings.makePhoneCall;
 
-      String smsMessage = _buildAlertMessage(_formatAlertTimestamp(alertTime));
+      await _logger.logUserAction(
+        module: 'home_controller',
+        action: _showSimulateFallButton
+            ? 'simulate_fall_button_pressed'
+            : 'fall_alert_triggered',
+        details:
+            'sendSms=$shouldSendSms;'
+            'sendGps=${alertSettings.sendGps};'
+            'recordAndSendVideo=${alertSettings.recordAndSendVideo};'
+            'makePhoneCall=${alertSettings.makePhoneCall}',
+      );
+
+      String smsMessage = 'Alerta de queda ${_formatAlertTimestamp(alertTime)}';
 
       String? evidenceFolderPath;
       bool videoUploadedSuccessfully = false;
@@ -233,8 +286,19 @@ class HomeController extends ChangeNotifier {
         try {
           final location = await _locationService.getCurrentLocation();
           smsMessage += '\nLocalização: ${location.googleMapsLink}';
-        } catch (_) {
+
+          await _logger.logSystemEvent(
+            module: 'home_controller',
+            action: 'gps_obtained',
+          );
+        } catch (error) {
           smsMessage += '\nLocalização: indisponível';
+
+          await _logger.logError(
+            module: 'home_controller',
+            action: 'gps_failed',
+            details: error.toString(),
+          );
         }
       }
 
@@ -246,8 +310,20 @@ class HomeController extends ChangeNotifier {
           if (evidence != null) {
             evidenceFolderPath = evidence.folderPath;
 
+            await _logger.logSystemEvent(
+              module: 'home_controller',
+              action: 'video_evidence_preserved',
+              details: 'folder=${evidence.folderPath}',
+            );
+
             await _videoConsolidationService.consolidateEvidenceFolder(
               evidence.folderPath,
+            );
+
+            await _logger.logSystemEvent(
+              module: 'home_controller',
+              action: 'video_consolidated',
+              details: 'folder=${evidence.folderPath}',
             );
 
             if (caregiverDriveController.session.hasLinkedAccount) {
@@ -262,41 +338,97 @@ class HomeController extends ChangeNotifier {
                   uploadResult.alertVideoWebViewLink!.trim().isNotEmpty) {
                 videoUploadedSuccessfully = true;
                 smsMessage += '\nVídeo: ${uploadResult.alertVideoWebViewLink}';
+
+                await _logger.logSystemEvent(
+                  module: 'home_controller',
+                  action: 'video_upload_success',
+                  details:
+                      'fileId=${uploadResult.alertVideoFileId ?? ''};'
+                      'folderId=${uploadResult.alertFolderId}',
+                );
               } else {
                 _errorMessage =
                     'Vídeo preservado e consolidado, mas falhou o upload para Google Drive.';
                 notifyListeners();
+
+                await _logger.logError(
+                  module: 'home_controller',
+                  action: 'video_upload_failed',
+                );
               }
             } else {
               _errorMessage =
                   'Vídeo preservado e consolidado, mas o Google Drive do cuidador não está ligado.';
               notifyListeners();
+
+              await _logger.logError(
+                module: 'home_controller',
+                action: 'drive_not_linked',
+              );
             }
           } else {
             _errorMessage = 'Sem evidência de vídeo disponível.';
             notifyListeners();
+
+            await _logger.logError(
+              module: 'home_controller',
+              action: 'video_evidence_missing',
+            );
           }
         } catch (error) {
           _errorMessage = 'Falha no processamento do vídeo do alerta: $error';
           notifyListeners();
+
+          await _logger.logError(
+            module: 'home_controller',
+            action: 'video_processing_failed',
+            details: error.toString(),
+          );
         }
       }
 
       if (shouldSendSms) {
-        await _smsAlertService.sendFallAlertSms(
-          phoneNumber: _caregiverPhoneNumber,
-          message: smsMessage,
-        );
-        smsSentSuccessfully = true;
+        try {
+          await _smsAlertService.sendFallAlertSms(
+            phoneNumber: _caregiverPhoneNumber,
+            message: smsMessage,
+          );
+          smsSentSuccessfully = true;
+
+          await _logger.logSystemEvent(
+            module: 'home_controller',
+            action: 'sms_sent',
+            details:
+                'hasGps=${alertSettings.sendGps};'
+                'hasVideoLink=$videoUploadedSuccessfully',
+          );
+        } catch (error) {
+          await _logger.logError(
+            module: 'home_controller',
+            action: 'sms_failed',
+            details: error.toString(),
+          );
+        }
       }
 
       if (shouldMakePhoneCall) {
         try {
           await _phoneCallService.callPhoneNumber(_caregiverPhoneNumber);
           callStartedSuccessfully = true;
+
+          await _logger.logSystemEvent(
+            module: 'home_controller',
+            action: 'fall_alert_call_started',
+          );
         } catch (error) {
           _errorMessage = 'Falha ao iniciar chamada do alerta: $error';
           notifyListeners();
+
+          await _logger.logError(
+            module: 'home_controller',
+            action: 'fall_alert_call_failed',
+            details: error.toString(),
+          );
         }
       }
 
@@ -306,45 +438,69 @@ class HomeController extends ChangeNotifier {
         await _videoEvidenceCleanupService.deleteEvidenceFolder(
           evidenceFolderPath,
         );
+
+        await _logger.logSystemEvent(
+          module: 'home_controller',
+          action: 'local_evidence_deleted',
+          details: 'folder=$evidenceFolderPath',
+        );
       }
 
-      if (shouldProcessVideo || shouldSendSms || shouldMakePhoneCall) {
-        final parts = <String>[];
-
-        if (videoUploadedSuccessfully) {
-          parts.add('vídeo enviado para Google Drive');
-        }
-
-        if (smsSentSuccessfully) {
-          parts.add('SMS enviado');
-        }
-
-        if (callStartedSuccessfully) {
-          parts.add('chamada iniciada');
-        }
-
-        if (parts.isEmpty) {
-          _errorMessage = _buildAlertMessage('processado.');
-        } else {
-          _errorMessage = _buildAlertMessage('${parts.join(', ')}.');
-        }
-      } else {
-        _errorMessage = _buildAlertMessage('processado.');
-      }
-
-      if (!shouldMakePhoneCall && (videoUploadedSuccessfully ||
-          smsSentSuccessfully)) {
+      if (!shouldMakePhoneCall &&
+          (videoUploadedSuccessfully || smsSentSuccessfully)) {
         await _voiceAlertService.speakAlertSentToCaregiver();
       }
 
-      //debugPrint('Evidence folder: $evidenceFolderPath');
+      final parts = <String>[];
+
+      if (videoUploadedSuccessfully) {
+        parts.add('vídeo enviado para Google Drive');
+      }
+
+      if (smsSentSuccessfully) {
+        parts.add('SMS enviado');
+      }
+
+      if (callStartedSuccessfully) {
+        parts.add('chamada iniciada');
+      }
+
+      if (parts.isEmpty) {
+        _errorMessage = 'Não foi possível executar nenhuma ação do alerta.';
+
+        await _logger.logError(
+          module: 'home_controller',
+          action: 'alert_no_action_executed',
+        );
+      } else {
+        _errorMessage = _buildAlertMessage(parts.join(', '));
+
+        await _logger.logSystemEvent(
+          module: 'home_controller',
+          action: 'alert_completed',
+          details: parts.join(';'),
+        );
+      }
+
+      debugPrint('Evidence folder: $evidenceFolderPath');
       notifyListeners();
     } catch (error) {
-      _errorMessage = _buildAlertMessage('Falha ao processar - $error');
+      _errorMessage = 'Falha ao processar alerta: $error';
       notifyListeners();
+
+      await _logger.logError(
+        module: 'home_controller',
+        action: 'alert_processing_failed',
+        details: error.toString(),
+      );
     } finally {
       if (shouldProcessVideo) {
         await videoLoopController.restartLoopIfEnabled();
+
+        await _logger.logSystemEvent(
+          module: 'home_controller',
+          action: 'video_loop_restarted',
+        );
       }
     }
   }

@@ -5,15 +5,20 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/services/flashlight_service.dart';
 import '../../../../core/services/voice_alert_service.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class FlashlightController extends ChangeNotifier {
   FlashlightController({
     required FlashlightService flashlightService,
     required VoiceAlertService voiceAlertService,
+    required AppLogger logger,
     }) :  _flashlightService = flashlightService,
-          _voiceAlertService = voiceAlertService;
+          _voiceAlertService = voiceAlertService,
+          _logger = logger;
 
   final FlashlightService _flashlightService;
   final VoiceAlertService _voiceAlertService;
+  final AppLogger _logger;
 
   bool _isAvailable = false;
   bool get isAvailable => _isAvailable;
@@ -44,7 +49,7 @@ class FlashlightController extends ChangeNotifier {
   double _darknessThresholdLux = 20.0;
   double get darknessThresholdLux => _darknessThresholdLux;
 
-  double _hysteresisMarginLux = 5.0;
+  final double _hysteresisMarginLux = 5.0;
   double get hysteresisMarginLux => _hysteresisMarginLux;
 
   double get turnOnThresholdLux =>
@@ -56,8 +61,8 @@ class FlashlightController extends ChangeNotifier {
   double get turnOffThresholdLux =>
       _darknessThresholdLux + _hysteresisMarginLux;
 
-  Duration _turnOnDelay = const Duration(seconds: 2);
-  Duration _turnOffDelay = const Duration(seconds: 3);
+  final Duration _turnOnDelay = const Duration(seconds: 2);
+  final Duration _turnOffDelay = const Duration(seconds: 3);
 
   Timer? _pendingTurnOnTimer;
   Timer? _pendingTurnOffTimer;
@@ -82,6 +87,10 @@ class FlashlightController extends ChangeNotifier {
         try {
           await _flashlightService.disable();
           _isOn = false;
+          _logger.logSystemEvent(
+            module: 'flashlight_controller', 
+            action: 'blocked_by_video_recording'
+            );
         } catch (_) {}
       }
     }
@@ -138,9 +147,17 @@ class FlashlightController extends ChangeNotifier {
       if (nextState) {
         await _flashlightService.enable();
         await _voiceAlertService.speakFlashlightOn();
+        _logger.logUserAction(
+          module: 'flashlight_controller', 
+          action: 'flashlight_on'
+          );
       } else {
         await _flashlightService.disable();
         await _voiceAlertService.speakFlashlightOff();
+        _logger.logUserAction(
+          module: 'flashlight_controller',
+          action: 'flashlight_off',
+        );
       }
 
       _isOn = nextState;
@@ -153,6 +170,7 @@ class FlashlightController extends ChangeNotifier {
       }
     } catch (_) {
       _errorMessage = 'Não foi possível controlar a lanterna.';
+      _logger.logError(module: 'flashlight_controller', action: 'failed_to_control_flashlight');
     } finally {
       _isBusy = false;
       notifyListeners();
@@ -255,13 +273,25 @@ class FlashlightController extends ChangeNotifier {
         await _flashlightService.enable();
         _isOn = true;
         await _voiceAlertService.speakFlashlightOn();
+        _logger.logSystemEvent(
+          module: 'flashlight_controller', 
+          action: 'automatic_flashlight_on'
+          );
       } else {
         await _flashlightService.disable();
         _isOn = false;
         await _voiceAlertService.speakFlashlightOff();
+        _logger.logSystemEvent(
+          module: 'flashlight_controller',
+          action: 'automatic_flashlight_off',
+        );
       }
     } catch (_) {
       _errorMessage = 'Não foi possível atualizar a lanterna.';
+      _logger.logError(
+        module: 'flashlight_controller',
+        action: 'automatic_flashlight_failed',
+      );
     } finally {
       _isBusy = false;
       notifyListeners();

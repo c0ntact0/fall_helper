@@ -9,14 +9,18 @@ import '../widgets/alert_settings_section.dart';
 import '../widgets/caregiver_section.dart';
 import '../widgets/user_features_section.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class SettingsPage extends StatefulWidget {
   final LightSensorController? lightSensorController;
   final CaregiverDriveController? caregiverDriveController;
+  final AppLogger? logger;
 
   const SettingsPage({
     super.key,
     this.lightSensorController,
     this.caregiverDriveController,
+    this.logger,
   });
 
   @override
@@ -30,7 +34,9 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
 
-    _controller = SettingsController(storageService: StorageService());
+    _controller = SettingsController(
+      storageService: StorageService(),
+      logger: widget.logger!);
 
     _controller.addListener(_onControllerChanged);
     widget.caregiverDriveController?.addListener(_onDriveControllerChanged);

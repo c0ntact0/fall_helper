@@ -7,14 +7,18 @@ import '../../../light_sensor/presentation/controllers/light_sensor_controller.d
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../controllers/pin_login_controller.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class PinLoginPage extends StatefulWidget {
   final LightSensorController? lightSensorController;
   final CaregiverDriveController? caregiverDriveController;
+  final AppLogger? logger;
 
   const PinLoginPage({
     super.key,
     this.lightSensorController,
     this.caregiverDriveController,
+    this.logger,
   });
 
   @override
@@ -28,7 +32,9 @@ class _PinLoginPageState extends State<PinLoginPage> {
   void initState() {
     super.initState();
 
-    _controller = PinLoginController(storageService: StorageService());
+    _controller = PinLoginController(
+      storageService: StorageService(),
+      logger: widget.logger!);
 
     _controller.addListener(_onControllerChanged);
     _controller.initialize();
@@ -65,6 +71,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
             builder: (_) => SettingsPage(
               lightSensorController: widget.lightSensorController,
               caregiverDriveController: widget.caregiverDriveController,
+              logger: widget.logger!,
             ),
           ),
         );

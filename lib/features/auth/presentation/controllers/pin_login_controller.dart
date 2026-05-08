@@ -3,13 +3,20 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/utils/validators.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class PinLoginController extends ChangeNotifier {
-  PinLoginController({required StorageService storageService})
-    : _storageService = storageService;
+  PinLoginController({
+    required StorageService storageService,
+    required AppLogger logger,
+    })
+    : _storageService = storageService,
+      _logger = logger;
 
   static const int pinLength = 4;
 
   final StorageService _storageService;
+  final AppLogger _logger;
 
   String _enteredPin = '';
   String get enteredPin => _enteredPin;
@@ -67,12 +74,20 @@ class PinLoginController extends ChangeNotifier {
     if (_enteredPin == _savedPin) {
       _errorMessage = null;
       notifyListeners();
+      _logger.logUserAction(
+        module: 'pin_login_controller',
+        action: 'pin_login_valid'
+        );
       return true;
     }
 
     _enteredPin = '';
     _errorMessage = 'PIN incorreto';
     notifyListeners();
+    _logger.logUserAction(
+      module: 'pin_login_controller',
+      action: 'pin_login_invalid',
+    );
     return false;
   }
 }
