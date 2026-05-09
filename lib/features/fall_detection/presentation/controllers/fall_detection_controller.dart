@@ -3,11 +3,18 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/fall_event.dart';
 import '../../services/fall_detection_service.dart';
 
+import '../../../../core/logging/app_logger.dart';
+
 class FallDetectionController extends ChangeNotifier {
-  FallDetectionController({required FallDetectionService fallDetectionService})
-    : _fallDetectionService = fallDetectionService;
+  FallDetectionController({
+    required FallDetectionService fallDetectionService,
+    required AppLogger logger,
+    }):
+     _fallDetectionService = fallDetectionService,
+     _logger = logger;
 
   final FallDetectionService _fallDetectionService;
+  final AppLogger _logger;
 
   bool _isEnabled = false;
   bool get isEnabled => _isEnabled;
@@ -46,14 +53,24 @@ class FallDetectionController extends ChangeNotifier {
         onError: (error) {
           _errorMessage = 'Falha ao ler sensores de queda: $error';
           notifyListeners();
+
         },
       );
 
       _isEnabled = true;
       notifyListeners();
+      await _logger.logSystemEvent(
+        module: 'fall_detection_controller',
+        action: 'fall_detection_enabled',
+      );
     } catch (error) {
       _errorMessage = 'Não foi possível iniciar a deteção de quedas.';
       notifyListeners();
+      await _logger.logError(
+        module: 'fall_detection_controller',
+        action: 'fall_detection_enable_failed',
+        details: error.toString(),
+      );
     }
   }
 
@@ -67,6 +84,10 @@ class FallDetectionController extends ChangeNotifier {
     await _fallDetectionService.stop();
     _isEnabled = false;
     notifyListeners();
+    await _logger.logSystemEvent(
+      module: 'fall_detection_controller',
+      action: 'fall_detection_disabled',
+    );
   }
 
   Future<void> disable() async {

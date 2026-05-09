@@ -73,6 +73,7 @@ class _HomePageState extends State<HomePage> {
 
     _fallDetectionController = FallDetectionController(
       fallDetectionService: FallDetectionService(),
+      logger: _logger,
     );
 
     _videoStorageService = VideoStorageService();
@@ -141,7 +142,13 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _toggleFallDetection() async {
     final currentSettings = await _storageService.loadUserFeatureSettings();
-
+    await _logger.logUserAction(
+      module: 'home_page',
+      action: 'fall_detection_button_pressed',
+      details:
+          'previousState=${_fallDetectionController.isEnabled ? "enabled" : "disabled"};'
+          'targetState=${_fallDetectionController.isEnabled ? "disabled" : "enabled"}',
+    );
     if (_fallDetectionController.isEnabled) {
       
       await _fallDetectionController.disable();
