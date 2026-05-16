@@ -12,7 +12,7 @@ class FallDetectionService {
     FallDetectionSettings settings = const FallDetectionSettings.defaults(),
   }) : _settings = settings;
 
-  static const bool debugSensorValues = true;
+  static const bool debugSensorValues = false;
   static const Duration _logThrottleDuration = Duration(milliseconds: 300);
 
   final FallDetectionSettings _settings;

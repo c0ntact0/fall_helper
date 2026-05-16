@@ -85,16 +85,14 @@ class AppLogger {
 
       if (_mirrorToDebugConsole) {
         debugPrint(
-          '[LOG] ${entry.timestamp.toIso8601String()} '
+          '[FALLHELPER LOG] ${entry.timestamp.toIso8601String()} '
           '[${entry.eventType.csvValue}] '
           '[$module] $action'
           '${details.isNotEmpty ? ' | $details' : ''}',
         );
       }
     } catch (error) {
-      if (_mirrorToDebugConsole) {
         debugPrint('Falha ao escrever log: $error');
-      }
     }
   }
 }
