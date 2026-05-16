@@ -46,10 +46,12 @@ class FlashlightController extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  // valor por omissão
   double _darknessThresholdLux = 20.0;
   double get darknessThresholdLux => _darknessThresholdLux;
 
-  final double _hysteresisMarginLux = 5.0;
+
+  final double _hysteresisMarginLux = 3.0;
   double get hysteresisMarginLux => _hysteresisMarginLux;
 
   double get turnOnThresholdLux =>
@@ -225,7 +227,7 @@ class FlashlightController extends ChangeNotifier {
         if (!_autoModeEnabled || _manualOverrideActive) return;
         if (currentLux > turnOnThresholdLux) return;
 
-        await _setTorchState(true);
+        await _setTorchState(true,lux);
       });
     } else {
       _cancelPendingTurnOn();
@@ -245,7 +247,7 @@ class FlashlightController extends ChangeNotifier {
         if (!_autoModeEnabled || _manualOverrideActive) return;
         if (currentLux < turnOffThresholdLux) return;
 
-        await _setTorchState(false);
+        await _setTorchState(false,lux);
       });
     } else {
       _cancelPendingTurnOff();
@@ -261,7 +263,7 @@ class FlashlightController extends ChangeNotifier {
     return _isOn;
   }
 
-  Future<void> _setTorchState(bool shouldTurnOn) async {
+  Future<void> _setTorchState(bool shouldTurnOn, int lux) async {
     if (!canUseFlashlight || _isBusy) return;
     if (_isOn == shouldTurnOn) return;
 
@@ -275,7 +277,8 @@ class FlashlightController extends ChangeNotifier {
         await _voiceAlertService.speakFlashlightOn();
         _logger.logSystemEvent(
           module: 'flashlight_controller', 
-          action: 'automatic_flashlight_on'
+          action: 'automatic_flashlight_on',
+          details: 'lux=$lux,darknessTh=$_darknessThresholdLux'
           );
       } else {
         await _flashlightService.disable();
@@ -284,6 +287,7 @@ class FlashlightController extends ChangeNotifier {
         _logger.logSystemEvent(
           module: 'flashlight_controller',
           action: 'automatic_flashlight_off',
+          details: 'lux=$lux,darknessTh=$_darknessThresholdLux'
         );
       }
     } catch (_) {
