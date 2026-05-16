@@ -263,17 +263,30 @@ class HomeController extends ChangeNotifier {
       shouldProcessVideo = alertSettings.recordAndSendVideo;
       shouldMakePhoneCall = alertSettings.makePhoneCall;
 
+
+      if (_showSimulateFallButton) {
+
       await _logger.logUserAction(
         module: 'home_controller',
-        action: _showSimulateFallButton
-            ? 'simulate_fall_button_pressed'
-            : 'fall_alert_triggered',
+        action: 'simulate_fall_button_pressed',
         details:
             'sendSms=$shouldSendSms;'
             'sendGps=${alertSettings.sendGps};'
             'recordAndSendVideo=${alertSettings.recordAndSendVideo};'
             'makePhoneCall=${alertSettings.makePhoneCall}',
       );
+      } else {
+
+      await _logger.logSystemEvent(
+        module: 'home_controller',
+        action: 'fall_alert_triggered',
+        details:
+            'sendSms=$shouldSendSms;'
+            'sendGps=${alertSettings.sendGps};'
+            'recordAndSendVideo=${alertSettings.recordAndSendVideo};'
+            'makePhoneCall=${alertSettings.makePhoneCall}',
+      );
+      }
 
       String smsMessage = 'Alerta de queda ${_formatAlertTimestamp(alertTime)}';
 
