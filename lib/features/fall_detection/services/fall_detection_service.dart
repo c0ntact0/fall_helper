@@ -7,15 +7,22 @@ import 'package:sensors_plus/sensors_plus.dart';
 import '../domain/models/fall_detection_settings.dart';
 import '../domain/models/fall_event.dart';
 
+import '../../../core/logging/app_logger.dart';
+
+
 class FallDetectionService {
   FallDetectionService({
     FallDetectionSettings settings = const FallDetectionSettings.defaults(),
-  }) : _settings = settings;
+    required AppLogger logger, 
+  }) : 
+      _settings = settings,
+      _logger = logger;
 
   static const bool debugSensorValues = false;
   static const Duration _logThrottleDuration = Duration(milliseconds: 300);
 
   final FallDetectionSettings _settings;
+  final AppLogger _logger;
 
   StreamSubscription<UserAccelerometerEvent>? _userAccelerometerSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
@@ -111,13 +118,12 @@ class FallDetectionService {
         _rotationConfirmed = false;
         _immobilityStartedAt = null;
 
-        if (debugSensorValues) {
-          debugPrint(
-            'FALL | Impact detected '
-            'mag=${_impactMagnitude.toStringAsFixed(2)} '
-            'threshold=${_settings.impactThresholdMs2.toStringAsFixed(2)}',
-          );
-        }
+          await _logger.logSystemEvent(
+            module: 'fall_detection_service', 
+            action: 'fall_impact_detected',
+            details: 'mag=${_impactMagnitude.toStringAsFixed(2)},threshold=${_settings.impactThresholdMs2.toStringAsFixed(2)}'
+            );
+        
       }
       return;
     }
@@ -125,12 +131,12 @@ class FallDetectionService {
     final elapsedSinceImpact = now.difference(_impactDetectedAt!);
 
     if (elapsedSinceImpact > _settings.immobilityWindow) {
-      if (debugSensorValues) {
-        debugPrint(
-          'FALL | Candidate reset: immobility window expired '
-          '(${elapsedSinceImpact.inMilliseconds} ms)',
+        await _logger.logSystemEvent(
+          module: 'fall_detection_service',
+          action: 'fall_candidate_reset',
+          details: 'immobility_window_expired=${elapsedSinceImpact.inMilliseconds} ms',
         );
-      }
+
       _resetCandidate();
       return;
     }
@@ -143,15 +149,15 @@ class FallDetectionService {
       final bool canConfirmWithoutGyro = !_gyroAvailable;
       final bool motionConfirmed = _rotationConfirmed || canConfirmWithoutGyro;
 
-      if (debugSensorValues) {
-        debugPrint(
-          'FALL | Immobility candidate '
-          'mag=${accelerationMagnitude.toStringAsFixed(2)} '
-          'immobilityMs=${immobilityDuration.inMilliseconds} '
-          'rotationConfirmed=$_rotationConfirmed '
-          'gyroAvailable=$_gyroAvailable',
-        );
-      }
+      await _logger.logSystemEvent(
+        module: 'fall_detection_service',
+        action: 'fall_immobility_candidate',
+        details:
+            'mag=${accelerationMagnitude.toStringAsFixed(2)},'
+            'immobilityMs=${immobilityDuration.inMilliseconds},'
+            'rotationConfirmed=$_rotationConfirmed,'
+            'gyroAvailable=$_gyroAvailable',
+      );
 
       if (motionConfirmed &&
           immobilityDuration >= _settings.immobilityRequiredDuration) {
@@ -164,25 +170,28 @@ class FallDetectionService {
 
         _cooldownUntil = now.add(_settings.cooldown);
 
-        if (debugSensorValues) {
-          debugPrint(
-            'FALL | Confirmed '
-            'impact=${fallEvent.impactMagnitude.toStringAsFixed(2)} '
-            'rotationConfirmed=${fallEvent.rotationConfirmed} '
-            'immobilityMs=${fallEvent.immobilityDuration.inMilliseconds} '
-            'cooldownUntil=$_cooldownUntil',
-          );
-        }
+        await _logger.logSystemEvent(
+          module: 'fall_detection_service',
+          action: 'fall_confirmed',
+          details:
+              'impact=${fallEvent.impactMagnitude.toStringAsFixed(2)},'
+              'rotationConfirmed=${fallEvent.rotationConfirmed},'
+              'immobilityMs=${fallEvent.immobilityDuration.inMilliseconds},'
+              'cooldownUntil=$_cooldownUntil',
+        );
 
         _resetCandidate();
         await onFallDetected(fallEvent);
       }
     } else {
-      if (_immobilityStartedAt != null && debugSensorValues) {
-        debugPrint(
-          'FALL | Immobility interrupted '
-          'mag=${accelerationMagnitude.toStringAsFixed(2)}',
+      if (_immobilityStartedAt != null) {
+        
+        await _logger.logSystemEvent(
+          module: 'fall_detection_service',
+          action: 'immobility interrupted',
+          details: 'mag=${accelerationMagnitude.toStringAsFixed(2)}',
         );
+
       }
       _immobilityStartedAt = null;
     }
@@ -205,14 +214,13 @@ class FallDetectionService {
     if (rotationMagnitude >= _settings.rotationThresholdRadS) {
       _rotationConfirmed = true;
 
-      if (debugSensorValues) {
-        debugPrint(
-          'FALL | Rotation confirmed '
-          'mag=${rotationMagnitude.toStringAsFixed(2)} '
-          'threshold=${_settings.rotationThresholdRadS.toStringAsFixed(2)} '
+      _logger.logSystemEvent(
+          module: 'fall_detection_service',
+          action: 'rotation_confirmed',
+          details: 'mag=${rotationMagnitude.toStringAsFixed(2)},'
+          'threshold=${_settings.rotationThresholdRadS.toStringAsFixed(2)},'
           'elapsedMs=${elapsedSinceImpact.inMilliseconds}',
         );
-      }
     }
   }
 

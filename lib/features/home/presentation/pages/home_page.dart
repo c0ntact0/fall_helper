@@ -72,7 +72,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     _fallDetectionController = FallDetectionController(
-      fallDetectionService: FallDetectionService(),
+      fallDetectionService: FallDetectionService(logger: _logger),
       logger: _logger,
     );
 
