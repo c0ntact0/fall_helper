@@ -99,17 +99,28 @@ class VideoLoopController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<VideoEvidence?> preserveEvidenceForSimulatedFall() async {
+  Future<VideoEvidence?> captureAlertEvidence({
+    required DateTime alertTime,
+    int postEventSeconds = 10,
+  }) async {
     if (!_isEnabled) return null;
 
     _isPreservingEvidence = true;
     notifyListeners();
 
     try {
-      final segments = await _recorder.freezeSegments();
+      final segments = await _recorder.captureAlertSegments(
+        postEventSeconds: postEventSeconds,
+      );
+
+      if (segments.isEmpty) {
+        _errorMessage = 'Sem segmentos de vídeo disponíveis para a evidência.';
+        return null;
+      }
+
       final evidence = await _storageService.preserveEvidence(
         segments: segments,
-        alertTime: DateTime.now(),
+        alertTime: alertTime,
       );
 
       _lastEvidenceFolder = evidence.folderPath;

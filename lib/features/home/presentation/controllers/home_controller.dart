@@ -318,7 +318,7 @@ class HomeController extends ChangeNotifier {
       if (shouldProcessVideo) {
         try {
           final evidence = await videoLoopController
-              .preserveEvidenceForSimulatedFall();
+              .captureAlertEvidence(alertTime: alertTime, postEventSeconds: 10);
 
           if (evidence != null) {
             evidenceFolderPath = evidence.folderPath;
