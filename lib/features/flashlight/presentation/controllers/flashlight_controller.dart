@@ -165,8 +165,18 @@ class FlashlightController extends ChangeNotifier {
       _isOn = nextState;
 
       if (_autoModeEnabled && _currentLux != null) {
-        final sensorWantsOn = _sensorWantsOnForOverrideResolution();
-        _manualOverrideActive = (_isOn != sensorWantsOn);
+        final bool environmentIsDark = _currentLux! <= turnOnThresholdLux;
+        final bool environmentIsBright = _currentLux! >= turnOffThresholdLux;
+
+        if (_isOn) {
+          // O utilizador ligou manualmente a lanterna.
+          // Só volta a disponibilizar o automático se o ambiente já for escuro.
+          _manualOverrideActive = !environmentIsDark;
+        } else {
+          // O utilizador desligou manualmente a lanterna.
+          // Só volta a disponibilizar o automático se o ambiente já for claro.
+          _manualOverrideActive = !environmentIsBright;
+        }
       } else {
         _manualOverrideActive = false;
       }
@@ -195,12 +205,7 @@ class FlashlightController extends ChangeNotifier {
     }
 
     if (_manualOverrideActive) {
-      final sensorWantsOn = _sensorWantsOnForOverrideResolution();
-
-      if (_isOn == sensorWantsOn) {
-        _manualOverrideActive = false;
-      }
-
+      
       notifyListeners();
       return;
     }
