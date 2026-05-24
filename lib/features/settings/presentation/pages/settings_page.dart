@@ -10,6 +10,7 @@ import '../widgets/caregiver_section.dart';
 import '../widgets/user_features_section.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import '../../../../core/services/location_service.dart';
 
 class SettingsPage extends StatefulWidget {
   final LightSensorController? lightSensorController;
@@ -25,15 +26,18 @@ class SettingsPage extends StatefulWidget {
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
+  
 }
 
 class _SettingsPageState extends State<SettingsPage> {
   late final SettingsController _controller;
+  late final LocationService _locationService;
 
   @override
   void initState() {
     super.initState();
 
+    _locationService = LocationService();
     _controller = SettingsController(
       storageService: StorageService(),
       logger: widget.logger!);
@@ -49,6 +53,120 @@ class _SettingsPageState extends State<SettingsPage> {
     widget.caregiverDriveController?.removeListener(_onDriveControllerChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _ensureBackgroundLocationForAlerts() async {
+    final status = await _locationService.ensureBackgroundLocationPermission();
+
+    if (!mounted) return;
+
+    switch (status) {
+      case BackgroundLocationStatus.ready:
+        return;
+
+      case BackgroundLocationStatus.locationServicesDisabled:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Os serviços de localização estão desligados. '
+              'Sem isso, o envio da localização pode falhar.',
+            ),
+          ),
+        );
+        await _locationService.openLocationSettings();
+        return;
+
+      case BackgroundLocationStatus.needsForegroundPermission:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'A permissão de localização foi negada. '
+              'Sem localização, o alerta pode ser enviado sem coordenadas.',
+            ),
+          ),
+        );
+        return;
+
+      case BackgroundLocationStatus.needsBackgroundPermission:
+        final bool? openSettings = await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Permissão de localização em segundo plano'),
+              content: const Text(
+                'Para enviar a localização quando a aplicação não estiver em '
+                'primeiro plano, o FallHelper precisa de acesso à localização '
+                'sempre. Sem essa permissão, o alerta pode ser enviado sem '
+                'localização.\n\n'
+                'Deseja abrir as definições da aplicação agora?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Agora não'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Abrir definições'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (openSettings == true) {
+          await _locationService.openAppSettings();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'A aplicação continuará a funcionar, mas poderá não conseguir '
+                'enviar a localização se estiver em segundo plano.',
+              ),
+            ),
+          );
+        }
+        return;
+
+      case BackgroundLocationStatus.deniedForever:
+        final bool? openSettings = await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Permissão negada permanentemente'),
+              content: const Text(
+                'A permissão de localização foi negada permanentemente. '
+                'Para permitir o envio da localização com a app em segundo plano, '
+                'é necessário alterar a permissão nas definições da aplicação.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Agora não'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Abrir definições'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (openSettings == true) {
+          await _locationService.openAppSettings();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sem a permissão "sempre", o envio da localização pode falhar '
+                'quando a aplicação não estiver em primeiro plano.',
+              ),
+            ),
+          );
+        }
+        return;
+    }
   }
 
   void _onControllerChanged() {
@@ -215,7 +333,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       isSendSmsForced: _controller.isSendSmsForced,
                       onMakePhoneCallChanged: _controller.setMakePhoneCall,
                       onSendSmsChanged: _controller.setSendSms,
-                      onSendGpsChanged: _controller.setSendGps,
+                      onSendGpsChanged: (value) async {
+                        _controller.setSendGps(value);
+
+                        if (value) {
+                          await _ensureBackgroundLocationForAlerts();
+                        }
+                      },
                       onRecordAndSendVideoChanged:
                           _controller.setRecordAndSendVideo,
                       onCircularRecordingSecondsChanged:
@@ -257,3 +381,5 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
+
+
