@@ -19,6 +19,9 @@ class FallDetectionService {
       _logger = logger;
 
   static const bool debugSensorValues = false;
+  static const bool logRotationConfirmed = false;
+  static const bool logImmobilityCandidate = false;
+
   static const Duration _logThrottleDuration = Duration(milliseconds: 300);
 
   final FallDetectionSettings _settings;
@@ -149,6 +152,8 @@ class FallDetectionService {
       final bool canConfirmWithoutGyro = !_gyroAvailable;
       final bool motionConfirmed = _rotationConfirmed || canConfirmWithoutGyro;
 
+      if (logImmobilityCandidate) {
+
       await _logger.logSystemEvent(
         module: 'fall_detection_service',
         action: 'fall_immobility_candidate',
@@ -158,6 +163,7 @@ class FallDetectionService {
             'rotationConfirmed=$_rotationConfirmed,'
             'gyroAvailable=$_gyroAvailable',
       );
+      }
 
       if (motionConfirmed &&
           immobilityDuration >= _settings.immobilityRequiredDuration) {
@@ -214,6 +220,8 @@ class FallDetectionService {
     if (rotationMagnitude >= _settings.rotationThresholdRadS) {
       _rotationConfirmed = true;
 
+      if(logRotationConfirmed) {
+
       _logger.logSystemEvent(
           module: 'fall_detection_service',
           action: 'rotation_confirmed',
@@ -221,6 +229,7 @@ class FallDetectionService {
           'threshold=${_settings.rotationThresholdRadS.toStringAsFixed(2)},'
           'elapsedMs=${elapsedSinceImpact.inMilliseconds}',
         );
+      }
     }
   }
 
