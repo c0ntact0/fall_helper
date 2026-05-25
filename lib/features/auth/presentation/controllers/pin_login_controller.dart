@@ -42,6 +42,7 @@ class PinLoginController extends ChangeNotifier {
   }
 
   void onDigitPressed(String digit) {
+    
     if (_isLoading) return;
     if (_enteredPin.length >= pinLength) return;
 
@@ -51,6 +52,7 @@ class PinLoginController extends ChangeNotifier {
   }
 
   void onBackspacePressed() {
+    
     if (_isLoading) return;
     if (_enteredPin.isEmpty) return;
 

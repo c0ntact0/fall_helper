@@ -27,6 +27,7 @@ class PinLoginPage extends StatefulWidget {
 
 class _PinLoginPageState extends State<PinLoginPage> {
   late final PinLoginController _controller;
+  late final _logger = widget.logger!;
 
   @override
   void initState() {
@@ -59,6 +60,10 @@ class _PinLoginPageState extends State<PinLoginPage> {
   }
 
   Future<void> _handleDigitPressed(String digit) async {
+    await _logger.logUserAction(
+      module: 'pin_login_page',
+      action: 'digit_pressed',
+    );
     _controller.onDigitPressed(digit);
 
     if (_controller.shouldValidateNow) {
@@ -83,7 +88,11 @@ class _PinLoginPageState extends State<PinLoginPage> {
     }
   }
 
-  void _handleBackspacePressed() {
+  void _handleBackspacePressed() async {
+    await _logger.logUserAction(
+      module: 'pin_login_controller',
+      action: 'backspace_pressed',
+    );
     _controller.onBackspacePressed();
   }
 
@@ -103,6 +112,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
             title: const Text('PIN de configuração'),
             leading: IconButton(
               onPressed: () {
+                _logger.logUserAction(module: 'pin_login_page', action: 'arrow_back_pressed');
                 Navigator.pop(context);
               },
               icon: const Icon(Icons.arrow_back),
@@ -137,16 +147,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
                       onBackspacePressed: _handleBackspacePressed,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Voltar'),
-                    ),
-                  ),
+                  
                 ],
               ),
             ),
