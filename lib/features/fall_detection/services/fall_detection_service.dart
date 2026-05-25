@@ -4,24 +4,20 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../domain/models/fall_detection_settings.dart';
 import '../domain/models/fall_event.dart';
-
-import '../../../core/logging/app_logger.dart';
-
 
 class FallDetectionService {
   FallDetectionService({
     FallDetectionSettings settings = const FallDetectionSettings.defaults(),
-    required AppLogger logger, 
-  }) : 
-      _settings = settings,
-      _logger = logger;
+    required AppLogger logger,
+  }) : _settings = settings,
+       _logger = logger;
 
   static const bool debugSensorValues = false;
   static const bool logRotationConfirmed = false;
   static const bool logImmobilityCandidate = false;
-
   static const Duration _logThrottleDuration = Duration(milliseconds: 300);
 
   final FallDetectionSettings _settings;
@@ -32,6 +28,9 @@ class FallDetectionService {
 
   bool _isRunning = false;
   bool get isRunning => _isRunning;
+
+  DateTime? _freeFallStartedAt;
+  DateTime? _lastQualifiedFreeFallAt;
 
   DateTime? _impactDetectedAt;
   double _impactMagnitude = 0.0;
@@ -111,22 +110,42 @@ class FallDetectionService {
     }
 
     final accelerationMagnitude = _magnitude(event.x, event.y, event.z);
-
     _logAccelerometer(event, accelerationMagnitude, now);
+
+    _updateFreeFallState(
+      now: now,
+      accelerationMagnitude: accelerationMagnitude,
+    );
 
     if (_impactDetectedAt == null) {
       if (accelerationMagnitude >= _settings.impactThresholdMs2) {
+        final bool hasQualifiedFreeFall = _hasRecentQualifiedFreeFall(now);
+
+        if (!hasQualifiedFreeFall) {
+          await _logger.logSystemEvent(
+            module: 'fall_detection_service',
+            action: 'impact_ignored_without_pre_impact',
+            details:
+                'mag=${accelerationMagnitude.toStringAsFixed(2)},'
+                'threshold=${_settings.impactThresholdMs2.toStringAsFixed(2)}',
+          );
+          return;
+        }
+
         _impactDetectedAt = now;
         _impactMagnitude = accelerationMagnitude;
         _rotationConfirmed = false;
         _immobilityStartedAt = null;
+        _freeFallStartedAt = null;
+        _lastQualifiedFreeFallAt = null;
 
-          await _logger.logSystemEvent(
-            module: 'fall_detection_service', 
-            action: 'fall_impact_detected',
-            details: 'mag=${_impactMagnitude.toStringAsFixed(2)},threshold=${_settings.impactThresholdMs2.toStringAsFixed(2)}'
-            );
-        
+        await _logger.logSystemEvent(
+          module: 'fall_detection_service',
+          action: 'fall_impact_detected',
+          details:
+              'mag=${_impactMagnitude.toStringAsFixed(2)},'
+              'threshold=${_settings.impactThresholdMs2.toStringAsFixed(2)}',
+        );
       }
       return;
     }
@@ -134,12 +153,12 @@ class FallDetectionService {
     final elapsedSinceImpact = now.difference(_impactDetectedAt!);
 
     if (elapsedSinceImpact > _settings.immobilityWindow) {
-        await _logger.logSystemEvent(
-          module: 'fall_detection_service',
-          action: 'fall_candidate_reset',
-          details: 'immobility_window_expired=${elapsedSinceImpact.inMilliseconds} ms',
-        );
-
+      await _logger.logSystemEvent(
+        module: 'fall_detection_service',
+        action: 'fall_candidate_reset',
+        details:
+            'immobility_window_expired=${elapsedSinceImpact.inMilliseconds} ms',
+      );
       _resetCandidate();
       return;
     }
@@ -148,21 +167,19 @@ class FallDetectionService {
       _immobilityStartedAt ??= now;
 
       final immobilityDuration = now.difference(_immobilityStartedAt!);
-
       final bool canConfirmWithoutGyro = !_gyroAvailable;
       final bool motionConfirmed = _rotationConfirmed || canConfirmWithoutGyro;
 
       if (logImmobilityCandidate) {
-
-      await _logger.logSystemEvent(
-        module: 'fall_detection_service',
-        action: 'fall_immobility_candidate',
-        details:
-            'mag=${accelerationMagnitude.toStringAsFixed(2)},'
-            'immobilityMs=${immobilityDuration.inMilliseconds},'
-            'rotationConfirmed=$_rotationConfirmed,'
-            'gyroAvailable=$_gyroAvailable',
-      );
+        await _logger.logSystemEvent(
+          module: 'fall_detection_service',
+          action: 'fall_immobility_candidate',
+          details:
+              'mag=${accelerationMagnitude.toStringAsFixed(2)},'
+              'immobilityMs=${immobilityDuration.inMilliseconds},'
+              'rotationConfirmed=$_rotationConfirmed,'
+              'gyroAvailable=$_gyroAvailable',
+        );
       }
 
       if (motionConfirmed &&
@@ -191,16 +208,38 @@ class FallDetectionService {
       }
     } else {
       if (_immobilityStartedAt != null) {
-        
         await _logger.logSystemEvent(
           module: 'fall_detection_service',
-          action: 'immobility interrupted',
+          action: 'immobility_interrupted',
           details: 'mag=${accelerationMagnitude.toStringAsFixed(2)}',
         );
-
       }
       _immobilityStartedAt = null;
     }
+  }
+
+  void _updateFreeFallState({
+    required DateTime now,
+    required double accelerationMagnitude,
+  }) {
+    if (accelerationMagnitude <= _settings.freeFallThresholdMs2) {
+      _freeFallStartedAt ??= now;
+
+      final duration = now.difference(_freeFallStartedAt!);
+      if (duration >= _settings.freeFallRequiredDuration) {
+        _lastQualifiedFreeFallAt = now;
+      }
+      return;
+    }
+
+    _freeFallStartedAt = null;
+  }
+
+  bool _hasRecentQualifiedFreeFall(DateTime now) {
+    final qualifiedAt = _lastQualifiedFreeFallAt;
+    if (qualifiedAt == null) return false;
+
+    return now.difference(qualifiedAt) <= _settings.freeFallWindowBeforeImpact;
   }
 
   void _handleGyroscopeEvent(GyroscopeEvent event) {
@@ -208,7 +247,6 @@ class FallDetectionService {
 
     final now = DateTime.now();
     final elapsedSinceImpact = now.difference(_impactDetectedAt!);
-
     final rotationMagnitude = _magnitude(event.x, event.y, event.z);
 
     _logGyroscope(event, rotationMagnitude, now);
@@ -220,14 +258,14 @@ class FallDetectionService {
     if (rotationMagnitude >= _settings.rotationThresholdRadS) {
       _rotationConfirmed = true;
 
-      if(logRotationConfirmed) {
-
-      _logger.logSystemEvent(
+      if (logRotationConfirmed) {
+        _logger.logSystemEvent(
           module: 'fall_detection_service',
           action: 'rotation_confirmed',
-          details: 'mag=${rotationMagnitude.toStringAsFixed(2)},'
-          'threshold=${_settings.rotationThresholdRadS.toStringAsFixed(2)},'
-          'elapsedMs=${elapsedSinceImpact.inMilliseconds}',
+          details:
+              'mag=${rotationMagnitude.toStringAsFixed(2)},'
+              'threshold=${_settings.rotationThresholdRadS.toStringAsFixed(2)},'
+              'elapsedMs=${elapsedSinceImpact.inMilliseconds}',
         );
       }
     }
@@ -243,7 +281,6 @@ class FallDetectionService {
     if (_lastAccelerometerLogAt == null ||
         now.difference(_lastAccelerometerLogAt!) > _logThrottleDuration) {
       _lastAccelerometerLogAt = now;
-
       debugPrint(
         'ACC | x=${event.x.toStringAsFixed(2)} '
         'y=${event.y.toStringAsFixed(2)} '
@@ -259,7 +296,6 @@ class FallDetectionService {
     if (_lastGyroscopeLogAt == null ||
         now.difference(_lastGyroscopeLogAt!) > _logThrottleDuration) {
       _lastGyroscopeLogAt = now;
-
       debugPrint(
         'GYRO | x=${event.x.toStringAsFixed(2)} '
         'y=${event.y.toStringAsFixed(2)} '
@@ -274,6 +310,8 @@ class FallDetectionService {
   }
 
   void _resetCandidate() {
+    _freeFallStartedAt = null;
+    _lastQualifiedFreeFallAt = null;
     _impactDetectedAt = null;
     _impactMagnitude = 0.0;
     _rotationConfirmed = false;

@@ -26,10 +26,10 @@ class FallDetectionSettings {
   });
 
   const FallDetectionSettings.defaults()
-    : freeFallThresholdMs2 = 1.2,
+    : freeFallThresholdMs2 = 1.8,
       freeFallRequiredDuration = const Duration(milliseconds: 150),
       freeFallWindowBeforeImpact = const Duration(milliseconds: 600),
-      impactThresholdMs2 = 22.0,
+      impactThresholdMs2 = 25.0,
       rotationThresholdRadS = 3.0,
       immobilityThresholdMs2 = 1.2,
       rotationWindow = const Duration(milliseconds: 800),

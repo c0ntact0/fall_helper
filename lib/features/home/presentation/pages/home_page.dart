@@ -172,6 +172,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openSettings() async {
+    
+    await _logger.logUserAction(
+      module: 'home_page',
+      action: 'settings_button_pressed'
+    );
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
