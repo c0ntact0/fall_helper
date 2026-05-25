@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'settings_section.dart';
+import '../../../../core/logging/app_logger.dart';
 
 class CaregiverSection extends StatelessWidget {
   final TextEditingController nameController;
@@ -11,6 +12,7 @@ class CaregiverSection extends StatelessWidget {
   final String? Function(String?) validateEmail;
   final String? Function(String?) validatePhone;
   final String? Function(String?) validatePin;
+  final AppLogger logger;
 
   const CaregiverSection({
     super.key,
@@ -22,6 +24,7 @@ class CaregiverSection extends StatelessWidget {
     required this.validateEmail,
     required this.validatePhone,
     required this.validatePin,
+    required this.logger,
   });
 
   @override
@@ -37,6 +40,9 @@ class CaregiverSection extends StatelessWidget {
               border: OutlineInputBorder(),
             ),
             validator: validateName,
+            onTap: () {
+              logger.logUserAction(module: 'caregiver_section', action: 'name_taped');
+            },
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -47,6 +53,12 @@ class CaregiverSection extends StatelessWidget {
             ),
             keyboardType: TextInputType.emailAddress,
             validator: validateEmail,
+            onTap: () {
+              logger.logUserAction(
+                module: 'caregiver_section',
+                action: 'email_taped',
+              );
+            },
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -57,6 +69,13 @@ class CaregiverSection extends StatelessWidget {
             ),
             keyboardType: TextInputType.phone,
             validator: validatePhone,
+            onTap: () {
+              logger.logUserAction(
+                module: 'caregiver_section',
+                action: 'phone_taped',
+              );
+            },
+            
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -69,6 +88,12 @@ class CaregiverSection extends StatelessWidget {
             obscureText: true,
             maxLength: 4,
             validator: validatePin,
+            onTap: () {
+              logger.logUserAction(
+                module: 'caregiver_section',
+                action: 'pin_taped',
+              );
+            },
           ),
         ],
       ),
