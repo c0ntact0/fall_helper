@@ -32,6 +32,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final SettingsController _controller;
   late final LocationService _locationService;
+  late final _logger = widget.logger!;
 
   @override
   void initState() {
@@ -195,6 +196,8 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveAndPop() async {
+    await _logger.logUserAction(module: 'settings_page', action: 'arrow_back_pressed');
+
     final didSave = await _controller.saveSettings();
 
     if (!mounted) return;
@@ -244,6 +247,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       onPressed: session.hasLinkedAccount
                           ? null
                           : () async {
+                            await _logger.logUserAction(
+                                module: 'settings_page',
+                                action: 'link_caregiver_drive_pressed',
+                              );
                               await driveController.linkCaregiverDrive();
                             },
                       child: const Text('Ligar Google Drive'),
@@ -254,6 +261,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: OutlinedButton(
                       onPressed: session.hasLinkedAccount
                           ? () async {
+                            await _logger.logUserAction(
+                                module: 'settings_page',
+                                action: 'unlink_caregiver_drive_pressed',
+                              );
                               await driveController.unlinkCaregiverDrive();
                             }
                           : null,
@@ -319,6 +330,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       validateEmail: AppValidators.email,
                       validatePhone: AppValidators.phone,
                       validatePin: AppValidators.pin4Digits,
+                      logger: _logger,
                     ),
                     const SizedBox(height: 16),
                     _buildDriveSection(),
