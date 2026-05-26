@@ -79,13 +79,14 @@ class UserFeaturesSection extends StatelessWidget {
               label: '${flashlightDarknessThresholdLux.toStringAsFixed(0)} lux',
               onChanged: onFlashlightDarknessThresholdLuxChanged,
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Mostrar botão simular queda'),
-              value: showSimulateFallButton,
-              onChanged: onShowSimulateFallButtonChanged,
-            ),
+            
           ],
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Mostrar botão simular queda'),
+            value: showSimulateFallButton,
+            onChanged: onShowSimulateFallButtonChanged,
+          ),
         ],
       ),
     );

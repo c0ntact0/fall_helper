@@ -30,8 +30,8 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
 
     return Caregiver(
-      name: prefs.getString(_caregiverNameKey) ?? 'Rui Loureiro',
-      email: prefs.getString(_caregiverEmailKey) ?? 'rui@example.com',
+      name: prefs.getString(_caregiverNameKey) ?? 'John Doe',
+      email: prefs.getString(_caregiverEmailKey) ?? 'john@example.com',
       phoneNumber: prefs.getString(_caregiverPhoneKey) ?? '210430349',
       pin: prefs.getString(_pinKey) ?? '0000',
     );
@@ -50,12 +50,12 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
 
     return AlertSettings(
-      makePhoneCall: prefs.getBool(_makePhoneCallKey) ?? true,
+      makePhoneCall: prefs.getBool(_makePhoneCallKey) ?? false,
       sendSms: prefs.getBool(_sendSmsKey) ?? false,
       sendGps: prefs.getBool(_sendGpsKey) ?? false,
       recordAndSendVideo: prefs.getBool(_recordAndSendVideoKey) ?? false,
       circularRecordingSeconds:
-          prefs.getInt(_circularRecordingSecondsKey) ?? 60,
+          prefs.getInt(_circularRecordingSecondsKey) ?? 30,
     );
   }
 
@@ -84,7 +84,7 @@ class StorageService {
       enableAutomaticFlashlightMode:
           prefs.getBool(_enableAutomaticFlashlightModeKey) ?? false,
       flashlightDarknessThresholdLux:
-          prefs.getDouble(_flashlightDarknessThresholdLuxKey) ?? 20.0,
+          prefs.getDouble(_flashlightDarknessThresholdLuxKey) ?? 5.0,
       fallDetectionEnabled: prefs.getBool(_fallDetectionEnabledKey) ?? false,
     );
   }
