@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/settings/domain/models/alert_settings.dart';
 import '../../features/settings/domain/models/caregiver.dart';
 import '../../features/settings/domain/models/user_feature_settings.dart';
+import '../../core/constants/settings_defaults.dart';
 
 class StorageService {
   static const _caregiverNameKey = 'caregiver_name';
@@ -30,10 +31,10 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
 
     return Caregiver(
-      name: prefs.getString(_caregiverNameKey) ?? 'John Doe',
-      email: prefs.getString(_caregiverEmailKey) ?? 'john@example.com',
-      phoneNumber: prefs.getString(_caregiverPhoneKey) ?? '210430349',
-      pin: prefs.getString(_pinKey) ?? '0000',
+      name: prefs.getString(_caregiverNameKey) ?? SettingsDefaults.caregiverName,
+      email: prefs.getString(_caregiverEmailKey) ?? SettingsDefaults.caregiverEmail,
+      phoneNumber: prefs.getString(_caregiverPhoneKey) ?? SettingsDefaults.caregiverPhone,
+      pin: prefs.getString(_pinKey) ?? SettingsDefaults.caregiverPin,
     );
   }
 
@@ -50,12 +51,12 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
 
     return AlertSettings(
-      makePhoneCall: prefs.getBool(_makePhoneCallKey) ?? false,
-      sendSms: prefs.getBool(_sendSmsKey) ?? false,
-      sendGps: prefs.getBool(_sendGpsKey) ?? false,
-      recordAndSendVideo: prefs.getBool(_recordAndSendVideoKey) ?? false,
+      makePhoneCall: prefs.getBool(_makePhoneCallKey) ?? SettingsDefaults.alertMakePhoneCall,
+      sendSms: prefs.getBool(_sendSmsKey) ?? SettingsDefaults.alertSendSms,
+      sendGps: prefs.getBool(_sendGpsKey) ?? SettingsDefaults.alertSendGps,
+      recordAndSendVideo: prefs.getBool(_recordAndSendVideoKey) ?? SettingsDefaults.alertRecordAndSendVideo,
       circularRecordingSeconds:
-          prefs.getInt(_circularRecordingSecondsKey) ?? 30,
+          prefs.getInt(_circularRecordingSecondsKey) ?? SettingsDefaults.alertCircularRecordingSeconds,
     );
   }
 
@@ -77,15 +78,15 @@ class StorageService {
 
     return UserFeatureSettings(
       showFallDetectionButton:
-          prefs.getBool(_showFallDetectionButtonKey) ?? true,
-      showPanicButton: prefs.getBool(_showPanicButtonKey) ?? true,
+          prefs.getBool(_showFallDetectionButtonKey) ?? SettingsDefaults.userShowFallDetectionButton,
+      showPanicButton: prefs.getBool(_showPanicButtonKey) ?? SettingsDefaults.userShowPanicButton,
       showSimulateFallButton:
-          prefs.getBool(_showSimulateFallButtonKey) ?? false,
+          prefs.getBool(_showSimulateFallButtonKey) ?? SettingsDefaults.userShowSimulateFallButton,
       enableAutomaticFlashlightMode:
-          prefs.getBool(_enableAutomaticFlashlightModeKey) ?? false,
+          prefs.getBool(_enableAutomaticFlashlightModeKey) ?? SettingsDefaults.userEnableAutomaticFlashlightMode,
       flashlightDarknessThresholdLux:
-          prefs.getDouble(_flashlightDarknessThresholdLuxKey) ?? 5.0,
-      fallDetectionEnabled: prefs.getBool(_fallDetectionEnabledKey) ?? false,
+          prefs.getDouble(_flashlightDarknessThresholdLuxKey) ?? SettingsDefaults.userFlashlightDarknessThresholdLux,
+      fallDetectionEnabled: prefs.getBool(_fallDetectionEnabledKey) ?? SettingsDefaults.userFallDetectionEnabled,
     );
   }
 

@@ -35,7 +35,7 @@ class VideoLoopController extends ChangeNotifier {
 
   VideoLoopSettings _settings = const VideoLoopSettings(
     enabled: false,
-    bufferSeconds: 60,
+    bufferSeconds: 30,
     withAudio: false,
     quality: VideoLoopQuality.p480,
     fps: 15,

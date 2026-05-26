@@ -25,7 +25,7 @@ class SettingsController extends ChangeNotifier {
   late final TextEditingController pinController;
   final AppLogger _logger;
 
-  double _flashlightDarknessThresholdLux = 20.0;
+  double _flashlightDarknessThresholdLux = 5.0;
   double get flashlightDarknessThresholdLux => _flashlightDarknessThresholdLux;
 
   int? _currentLux;
@@ -49,7 +49,7 @@ class SettingsController extends ChangeNotifier {
   bool _recordAndSendVideo = false;
   bool get recordAndSendVideo => _recordAndSendVideo;
 
-  int _circularRecordingSeconds = 60;
+  int _circularRecordingSeconds = 30;
   int get circularRecordingSeconds => _circularRecordingSeconds;
 
   bool _showFallDetectionButton = true;
