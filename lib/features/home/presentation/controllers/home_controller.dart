@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fall_helper/core/constants/settings_defaults.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/phone_call_service.dart';
@@ -154,7 +155,7 @@ class HomeController extends ChangeNotifier {
   void startPanicFlow() {
     if (_isPanicInProgress) return;
 
-    if (_caregiverPhoneNumber.trim().isEmpty) {
+    if (_caregiverPhoneNumber.trim().isEmpty || _caregiverPhoneNumber == SettingsDefaults.caregiverPhone) {
       _errorMessage = 'Configure o telefone do cuidador primeiro.';
       notifyListeners();
 

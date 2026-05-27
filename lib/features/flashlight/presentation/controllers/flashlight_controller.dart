@@ -89,7 +89,7 @@ class FlashlightController extends ChangeNotifier {
         try {
           await _flashlightService.disable();
           _isOn = false;
-          _logger.logSystemEvent(
+          await _logger.logSystemEvent(
             module: 'flashlight_controller', 
             action: 'blocked_by_video_recording'
             );
@@ -149,14 +149,14 @@ class FlashlightController extends ChangeNotifier {
       if (nextState) {
         await _flashlightService.enable();
         await _voiceAlertService.speakFlashlightOn();
-        _logger.logUserAction(
+        await _logger.logUserAction(
           module: 'flashlight_controller', 
           action: 'flashlight_on'
           );
       } else {
         await _flashlightService.disable();
         await _voiceAlertService.speakFlashlightOff();
-        _logger.logUserAction(
+        await _logger.logUserAction(
           module: 'flashlight_controller',
           action: 'flashlight_off',
         );
@@ -182,7 +182,7 @@ class FlashlightController extends ChangeNotifier {
       }
     } catch (_) {
       _errorMessage = 'Não foi possível controlar a lanterna.';
-      _logger.logError(module: 'flashlight_controller', action: 'failed_to_control_flashlight');
+      await _logger.logError(module: 'flashlight_controller', action: 'failed_to_control_flashlight');
     } finally {
       _isBusy = false;
       notifyListeners();
@@ -280,7 +280,7 @@ class FlashlightController extends ChangeNotifier {
         await _flashlightService.enable();
         _isOn = true;
         await _voiceAlertService.speakFlashlightOn();
-        _logger.logSystemEvent(
+        await _logger.logSystemEvent(
           module: 'flashlight_controller', 
           action: 'automatic_flashlight_on',
           details: 'lux=$lux,darknessTh=$_darknessThresholdLux'
@@ -289,7 +289,7 @@ class FlashlightController extends ChangeNotifier {
         await _flashlightService.disable();
         _isOn = false;
         await _voiceAlertService.speakFlashlightOff();
-        _logger.logSystemEvent(
+        await _logger.logSystemEvent(
           module: 'flashlight_controller',
           action: 'automatic_flashlight_off',
           details: 'lux=$lux,darknessTh=$_darknessThresholdLux'
@@ -297,7 +297,7 @@ class FlashlightController extends ChangeNotifier {
       }
     } catch (_) {
       _errorMessage = 'Não foi possível atualizar a lanterna.';
-      _logger.logError(
+      await _logger.logError(
         module: 'flashlight_controller',
         action: 'automatic_flashlight_failed',
       );
