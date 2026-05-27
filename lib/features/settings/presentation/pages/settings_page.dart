@@ -285,6 +285,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+
     return AnimatedBuilder(
       animation: Listenable.merge([
         _controller,

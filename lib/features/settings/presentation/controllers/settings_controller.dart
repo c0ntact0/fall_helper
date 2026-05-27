@@ -7,6 +7,8 @@ import '../../domain/models/user_feature_settings.dart';
 
 import '../../../../core/logging/app_logger.dart';
 
+import '../../../../core/constants/settings_defaults.dart';
+
 class SettingsController extends ChangeNotifier {
   SettingsController({
     required StorageService storageService,
@@ -131,13 +133,22 @@ class SettingsController extends ChangeNotifier {
   }
 
   void setSendSms(bool value) {
-    final bool smsIsForced = _sendGps || _recordAndSendVideo;
+    final bool smsIsForced = isSendSmsForced;
+
+    if ((smsIsForced || value) && caregiverPhoneController.text == SettingsDefaults.caregiverPhone){
+      
+      _errorMessage='Deve mudar o número de telefone para enviar SMS';
+      _sendSms = false;
+
+    } else {
 
     if (smsIsForced) {
       _sendSms = true;
     } else {
       _sendSms = value;
     }
+    }
+
 
     notifyListeners();
     _logger.logUserAction(
@@ -145,6 +156,8 @@ class SettingsController extends ChangeNotifier {
       action: 'toggle_send_sms',
       details: 'value=$_sendSms;forced=$smsIsForced',
     );
+    
+
   }
 
   bool get isSendSmsForced => _sendGps || _recordAndSendVideo;
@@ -153,29 +166,35 @@ class SettingsController extends ChangeNotifier {
     _sendGps = value;
 
     if (_sendGps) {
-      _sendSms = true;
-    }
+      setSendSms(true);
+      _sendGps = _sendSms;
+      _errorMessage = _sendSms ? null: 'SMS deve estar ativado para enviar localização GPS';
+    } 
 
     notifyListeners();
     _logger.logUserAction(
       module: 'settings_controller',
       action: 'toggle_send_gps',
-      details: 'value=$value;sendSms=$_sendSms',
+      details: 'sendGps=$_sendGps;sendSms=$_sendSms',
     );
+    
+
   }
 
   void setRecordAndSendVideo(bool value) {
     _recordAndSendVideo = value;
 
     if (_recordAndSendVideo) {
-      _sendSms = true;
-    }
+      setSendSms(true);
+      _recordAndSendVideo = _sendSms;
+      _errorMessage = _sendSms ? null : 'SMS deve estar ativado para enviar link de vídeo';
+    } 
 
     notifyListeners();
     _logger.logUserAction(
       module: 'settings_controller',
       action: 'toggle_record_and_send_video',
-      details: 'value=$value;sendSms=$_sendSms',
+      details: 'recordAndSendVideo=$_recordAndSendVideo;sendSms=$_sendSms',
     );
   }
 
